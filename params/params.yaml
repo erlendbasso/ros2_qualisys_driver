@@ -3,6 +3,6 @@ qualisys_driver:
     server_address: "192.168.0.41"
     base_port: 22222
     update_period_ms: 10
-    udp_port: 0
-    qtm_minor_protocol_version: 17 #if this does not work try downgrading to 17
+    udp_port: 14570
+    qtm_minor_protocol_version: 18 #if this does not work try downgrading to 17
     subject_name: "rb5"

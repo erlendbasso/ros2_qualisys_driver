@@ -6,8 +6,14 @@ services:
     # runtime: nvidia
     # user: $(id -u $USER):$(id -g $USER)
     privileged: true
-    # ports:
-    #   - "14570:14570/udp"
+    ports:
+      - "14570:14570/udp"
+      - "22222:22222/udp"
+      - "7510:7510/udp"
+      - "7511:7511/udp"
+      - "7400:7400/udp"
+      - "7555:7555/udp"
+      # - "7415:7415/udp"
     build:
       context: ./
       dockerfile: Dockerfile

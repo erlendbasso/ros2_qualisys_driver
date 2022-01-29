@@ -60,9 +60,22 @@ target_include_directories(${QUALISYS_DRIVER_LIB}
                             PUBLIC
                             $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
                             $<INSTALL_INTERFACE:include>
+                            ${lifecycle_msgs_INCLUDE_DIRS}
+                            ${nav_msgs_INCLUDE_DIRS}
+                            ${geometry_msgs_INCLUDE_DIRS}
+                              ${rclcpp_lifecycle_INCLUDE_DIRS}
 )
 
-ament_target_dependencies(${QUALISYS_DRIVER_LIB} ${dependencies})
+# ament_target_dependencies(${QUALISYS_DRIVER_LIB} ${dependencies})
+target_link_libraries(${QUALISYS_DRIVER_LIB} PUBLIC 
+  Eigen3::Eigen
+  rclcpp::rclcpp
+  rclcpp_lifecycle::rclcpp_lifecycle
+  ${rclcpp_components_LIBRARIES}
+  ${rclcpp_lifecycle_LIBRARIES}
+  ${nav_msgs_LIBRARIES}
+  ${geometry_msgs_LIBRARIES}
+  ${lifecycle_msgs_LIBRARIES})
 
 rclcpp_components_register_nodes(${QUALISYS_DRIVER_LIB} "QualisysDriver")
 

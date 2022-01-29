@@ -27,13 +27,13 @@ void QualisysDriverNode::create_qualisys_publisher() {
   qualisys_pose_pub_ = this->create_publisher<geometry_msgs::msg::Pose>(
       "/qualisys/" + subject_name_ + "/pose", rclcpp::QoS(1));
 
-  realtime_qualisys_pub_ = std::make_shared<
-      realtime_tools::RealtimePublisher<nav_msgs::msg::Odometry>>(
-      qualisys_pub_);
+  // realtime_qualisys_pub_ = std::make_shared<
+      // realtime_tools::RealtimePublisher<nav_msgs::msg::Odometry>>(
+      // qualisys_pub_);
 
-  auto &odometry_message = realtime_qualisys_pub_->msg_;
-  odometry_message.header.frame_id = "odom";
-  odometry_message.child_frame_id = "base_link";
+  // auto &odometry_message = realtime_qualisys_pub_->msg_;
+  odometry_message_.header.frame_id = "odom";
+  odometry_message_.child_frame_id = "base_link";
 }
 
 void QualisysDriverNode::create_timer_callback() {
@@ -98,30 +98,31 @@ void QualisysDriverNode::create_timer_callback() {
     // const auto current_time = this->now();
     const auto current_time = this->get_clock()->now();
 
-    if (realtime_qualisys_pub_->trylock()) {
-      auto &odometry_message = realtime_qualisys_pub_->msg_;
-      odometry_message.header.stamp = current_time;
-      odometry_message.pose.pose.position.x = pos(0);
-      odometry_message.pose.pose.position.y = pos(1);
-      odometry_message.pose.pose.position.z = pos(2);
-      odometry_message.pose.pose.orientation.x = quat.x();
-      odometry_message.pose.pose.orientation.y = quat.y();
-      odometry_message.pose.pose.orientation.z = quat.z();
-      odometry_message.pose.pose.orientation.w = quat.w();
-      realtime_qualisys_pub_->unlockAndPublish();
-    }
+    // if (realtime_qualisys_pub_->trylock()) {
+      // nav_msgs::msg::Odometry odom_message_;
+      odometry_message_.header.stamp = current_time;
+      odometry_message_.pose.pose.position.x = pos(0);
+      odometry_message_.pose.pose.position.y = pos(1);
+      odometry_message_.pose.pose.position.z = pos(2);
+      odometry_message_.pose.pose.orientation.x = quat.x();
+      odometry_message_.pose.pose.orientation.y = quat.y();
+      odometry_message_.pose.pose.orientation.z = quat.z();
+      odometry_message_.pose.pose.orientation.w = quat.w();
+      // realtime_qualisys_pub_->unlockAndPublish();
+      qualisys_pub_->publish(odometry_message_);
+      // }
 
-    geometry_msgs::msg::Pose pose_message;
-    // pose_message.header.stamp = current.time;
-    pose_message.position.x = pos(0);
-    pose_message.position.y = pos(1);
-    pose_message.position.z = pos(2);
-    pose_message.orientation.x = quat.x();
-    pose_message.orientation.y = quat.y();
-    pose_message.orientation.z = quat.z();
-    pose_message.orientation.w = quat.w();
-    
-    qualisys_pose_pub_->publish(pose_message);
+      geometry_msgs::msg::Pose pose_message;
+      // pose_message.header.stamp = current.time;
+      pose_message.position.x = pos(0);
+      pose_message.position.y = pos(1);
+      pose_message.position.z = pos(2);
+      pose_message.orientation.x = quat.x();
+      pose_message.orientation.y = quat.y();
+      pose_message.orientation.z = quat.z();
+      pose_message.orientation.w = quat.w();
+
+      qualisys_pose_pub_->publish(pose_message);
   };
 
   timer_ = this->create_wall_timer(update_period_, state_timer_callback);
@@ -218,14 +219,14 @@ QualisysDriverNode::on_configure(const rclcpp_lifecycle::State &) {
     return CallbackReturn::ERROR;
   }
   // Read system settings
-  if (!port_protocol_.ReadGeneralSettings()) {
+  if (!port_protocol_.ReadCameraSystemSettings()) {
     RCLCPP_FATAL_STREAM(
         get_logger(), "Failed to read system settings during intialization\n"
                           << "QTM error: " << port_protocol_.GetErrorString());
     return CallbackReturn::ERROR;
   }
   // Start streaming data frames
-  int system_frequency = port_protocol_.GetSystemFrequency();
+  unsigned int system_frequency = port_protocol_.GetSystemFrequency();
   CRTProtocol::EStreamRate stream_rate_mode =
       CRTProtocol::EStreamRate::RateAllFrames;
   double dt = 1.0 / (double)system_frequency;
@@ -258,6 +259,7 @@ CallbackReturn
 QualisysDriverNode::on_activate(const rclcpp_lifecycle::State &) {
   RCLCPP_INFO(get_logger(), "Activating");
   qualisys_pub_->on_activate();
+  qualisys_pose_pub_->on_activate();
   timer_->reset();
 
   return CallbackReturn::SUCCESS;
@@ -267,6 +269,7 @@ CallbackReturn
 QualisysDriverNode::on_deactivate(const rclcpp_lifecycle::State &) {
   RCLCPP_INFO(get_logger(), "Deactivating");
   qualisys_pub_->on_deactivate();
+  qualisys_pose_pub_->on_deactivate();
   timer_->cancel();
 
   return CallbackReturn::SUCCESS;

@@ -18,7 +18,7 @@
 #include "lifecycle_msgs/msg/transition.hpp"
 #include "rcutils/logging_macros.h"
 
-#include "realtime_tools/realtime_publisher.h"
+// #include "realtime_tools/realtime_publisher.h"
 
 #include "ros2_qualisys_driver/RTProtocol.h"
 
@@ -95,14 +95,15 @@ private:
 
   // std::shared_ptr<rclcpp::Publisher<nav_msgs::msg::Odometry>> qualisys_pub_;
 
-  std::shared_ptr<realtime_tools::RealtimePublisher<nav_msgs::msg::Odometry>>
-  realtime_qualisys_pub_{nullptr};
+  // std::shared_ptr<realtime_tools::RealtimePublisher<nav_msgs::msg::Odometry>>
+  // realtime_qualisys_pub_{nullptr};
 
-  std::shared_ptr<realtime_tools::RealtimePublisher<geometry_msgs::msg::Pose>>
-      realtime_qualisys_pose_pub_{nullptr};
+  // std::shared_ptr<realtime_tools::RealtimePublisher<geometry_msgs::msg::Pose>>
+      // realtime_qualisys_pose_pub_{nullptr};
 
   rclcpp::TimerBase::SharedPtr timer_;
 
+  nav_msgs::msg::Odometry odometry_message_;
 };
 
 }

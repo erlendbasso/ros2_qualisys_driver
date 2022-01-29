@@ -1,7 +1,7 @@
-FROM ros:foxy-ros-base-focal
+FROM ros:galactic-ros-base-focal
 
 
-ENV ROS_DISTRO=foxy
+ENV ROS_DISTRO=galactic
 
 
 RUN echo "source /opt/ros/${ROS_DISTRO}/setup.bash && echo Sourced ROS-${ROS_DISTRO}" >> /root/.bashrc;
@@ -9,7 +9,7 @@ RUN echo "source /opt/ros/${ROS_DISTRO}/setup.bash && echo Sourced ROS-${ROS_DIS
 # RUN apt-get update && apt-get install 
 
 # INSTALL OPENCV
-RUN apt-get update && apt-get install -y cmake g++ wget unzip ros-foxy-realtime-tools
+RUN apt-get update && apt-get install -y cmake g++ wget unzip ros-galactic-realtime-tools
 
 
 WORKDIR /tmp
@@ -53,6 +53,8 @@ RUN git clone https://github.com/strasdat/Sophus.git /tmp/Sophus\
 
 # RUN chmod a+x /startup.sh
 # RUN chmod a+x /run.sh
+
+# ENV FASTRTPS_DEFAULT_PROFILES_FILE="/workspaces/ros2_ws/src/ros2_qualisys_driver/DEFAULT_FASTRTPS_PROFILES.xml"
 
 # ENTRYPOINT ["/bin/bash", "-c", "/startup.sh  && $@", ""]
 
