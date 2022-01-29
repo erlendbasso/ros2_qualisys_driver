@@ -29,7 +29,8 @@ find_package(eigen3_cmake_module REQUIRED)
 find_package(Eigen3)
 find_package(Sophus REQUIRED)
 find_package(nav_msgs)
-find_package(pendulum_utils REQUIRED)
+find_package(geometry_msgs)
+# find_package(pendulum_control REQUIRED)
 
 
 set(dependencies
@@ -42,7 +43,8 @@ set(dependencies
     Eigen3
     Sophus
     nav_msgs
-    pendulum_utils
+    # pendulum_control
+    geometry_msgs
 )
 
 set(QUALISYS_DRIVER_LIB qualisys_driver)

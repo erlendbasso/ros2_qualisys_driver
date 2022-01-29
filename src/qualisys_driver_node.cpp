@@ -24,6 +24,9 @@ void QualisysDriverNode::create_qualisys_publisher() {
   qualisys_pub_ = this->create_publisher<nav_msgs::msg::Odometry>(
       "/qualisys/" + subject_name_ + "/odom", rclcpp::QoS(1));
 
+  qualisys_pose_pub_ = this->create_publisher<geometry_msgs::msg::Pose>(
+      "/qualisys/" + subject_name_ + "/pose", rclcpp::QoS(1));
+
   realtime_qualisys_pub_ = std::make_shared<
       realtime_tools::RealtimePublisher<nav_msgs::msg::Odometry>>(
       qualisys_pub_);
@@ -107,6 +110,18 @@ void QualisysDriverNode::create_timer_callback() {
       odometry_message.pose.pose.orientation.w = quat.w();
       realtime_qualisys_pub_->unlockAndPublish();
     }
+
+    geometry_msgs::msg::Pose pose_message;
+    // pose_message.header.stamp = current.time;
+    pose_message.position.x = pos(0);
+    pose_message.position.y = pos(1);
+    pose_message.position.z = pos(2);
+    pose_message.orientation.x = quat.x();
+    pose_message.orientation.y = quat.y();
+    pose_message.orientation.z = quat.z();
+    pose_message.orientation.w = quat.w();
+    
+    qualisys_pose_pub_->publish(pose_message);
   };
 
   timer_ = this->create_wall_timer(update_period_, state_timer_callback);

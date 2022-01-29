@@ -24,6 +24,8 @@
 
 #include "nav_msgs/msg/odometry.hpp"
 
+#include "geometry_msgs/msg/pose.hpp"
+
 namespace qualisys_driver
 {
 using namespace Eigen;
@@ -88,11 +90,16 @@ private:
   std::shared_ptr<rclcpp_lifecycle::LifecyclePublisher<
     nav_msgs::msg::Odometry>> qualisys_pub_;
 
+  std::shared_ptr<rclcpp_lifecycle::LifecyclePublisher<geometry_msgs::msg::Pose>>
+      qualisys_pose_pub_;
+
   // std::shared_ptr<rclcpp::Publisher<nav_msgs::msg::Odometry>> qualisys_pub_;
 
   std::shared_ptr<realtime_tools::RealtimePublisher<nav_msgs::msg::Odometry>>
   realtime_qualisys_pub_{nullptr};
 
+  std::shared_ptr<realtime_tools::RealtimePublisher<geometry_msgs::msg::Pose>>
+      realtime_qualisys_pose_pub_{nullptr};
 
   rclcpp::TimerBase::SharedPtr timer_;
 
