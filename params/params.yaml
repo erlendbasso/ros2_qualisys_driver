@@ -1,0 +1,8 @@
+qualisys_driver:
+  ros__parameters:
+    server_address: "192.168.0.10"
+    base_port: 22222
+    update_period_ms: 10
+    udp_port: 0
+    qtm_minor_protocol_version: 17
+    subject_name: "CSEI"
