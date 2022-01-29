@@ -1,6 +1,6 @@
 qualisys_driver:
   ros__parameters:
-    server_address: "192.168.0.41"
+    server_address: "192.168.254.1"
     base_port: 22222
     update_period_ms: 10
     udp_port: 14570

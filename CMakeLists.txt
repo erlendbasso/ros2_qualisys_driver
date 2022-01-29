@@ -15,8 +15,8 @@ if(CMAKE_COMPILER_IS_GNUCXX OR CMAKE_CXX_COMPILER_ID MATCHES "Clang")
   add_compile_options(-Wall -Wextra -Wpedantic)
 endif()
 
-set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
-
+#set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
+#include(GNUInstallDirs)
 
 # find dependencies
 find_package(ament_cmake REQUIRED)
@@ -24,10 +24,8 @@ find_package(rclcpp REQUIRED)
 find_package(rclcpp_components REQUIRED)
 find_package(rclcpp_lifecycle REQUIRED)
 find_package(lifecycle_msgs REQUIRED)
-find_package(realtime_tools REQUIRED)
-find_package(eigen3_cmake_module REQUIRED)
-find_package(Eigen3)
-find_package(Sophus REQUIRED)
+#find_package(eigen3_cmake_module REQUIRED)
+find_package(Eigen3 REQUIRED)
 find_package(nav_msgs)
 find_package(geometry_msgs)
 # find_package(pendulum_control REQUIRED)
@@ -38,17 +36,15 @@ set(dependencies
     rclcpp_components
     rclcpp_lifecycle
     lifecycle_msgs
-    realtime_tools
     eigen3_cmake_module
     Eigen3
-    Sophus
     nav_msgs
     # pendulum_control
     geometry_msgs
 )
 
 set(QUALISYS_DRIVER_LIB qualisys_driver)
-add_library(${QUALISYS_DRIVER_LIB} SHARED
+add_library(${QUALISYS_DRIVER_LIB} 
             src/qualisys_driver_node.cpp
             include/ros2_qualisys_driver/RTProtocol.cpp
             include/ros2_qualisys_driver/Markup.cpp
@@ -59,6 +55,7 @@ add_library(${QUALISYS_DRIVER_LIB} SHARED
 target_include_directories(${QUALISYS_DRIVER_LIB}
                             PUBLIC
                             $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
+$<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}>
                             $<INSTALL_INTERFACE:include>
                             ${lifecycle_msgs_INCLUDE_DIRS}
                             ${nav_msgs_INCLUDE_DIRS}
@@ -75,9 +72,11 @@ target_link_libraries(${QUALISYS_DRIVER_LIB} PUBLIC
   ${rclcpp_lifecycle_LIBRARIES}
   ${nav_msgs_LIBRARIES}
   ${geometry_msgs_LIBRARIES}
-  ${lifecycle_msgs_LIBRARIES})
+  ${lifecycle_msgs_LIBRARIES}
+  $<$<STREQUAL:"${CMAKE_CXX_COMPILER_ID}","MSVC">:ws2_32.lib>
+)
 
-rclcpp_components_register_nodes(${QUALISYS_DRIVER_LIB} "QualisysDriver")
+#rclcpp_components_register_nodes(${QUALISYS_DRIVER_LIB} "QualisysDriver")
 
 set(QUALISYS_DRIVER_EXE "${QUALISYS_DRIVER_LIB}_exe")
 add_executable(${QUALISYS_DRIVER_EXE} src/qualisys_driver_node_main.cpp)
@@ -91,7 +90,9 @@ if(CMAKE_CXX_COMPILER_ID MATCHES "Clang")
   # target_compile_options(${QUALISYS_DRIVER_EXE} PUBLIC -Wthread-safety)  # for a single library or executable
 endif()
 
-set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
+#set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
+
+target_compile_features(${QUALISYS_DRIVER_EXE} PUBLIC cxx_std_14)
 
 install(
   DIRECTORY include/

@@ -170,13 +170,13 @@ bool QualisysDriverNode::get_rt_packet() {
   return is_ok;
 }
 
-CallbackReturn
+rclcpp_lifecycle::node_interfaces::LifecycleNodeInterface::CallbackReturn
 QualisysDriverNode::on_configure(const rclcpp_lifecycle::State &) {
   RCLCPP_INFO(get_logger(), "Configuring");
   // qualisys stuff
   if (server_address_.empty()) {
     RCLCPP_FATAL(get_logger(), "Server_address parameter empty");
-    return CallbackReturn::ERROR;
+    // return rclcpp_lifecycle::node_interfaces::LifecycleNodeInterface::CallbackReturn::ERROR;
   }
 
   unsigned short udp_stream_port = 0;
@@ -201,7 +201,7 @@ QualisysDriverNode::on_configure(const rclcpp_lifecycle::State &) {
                                           << " failed\n"
                                              "Reason: "
                                           << port_protocol_.GetErrorString());
-    return CallbackReturn::ERROR;
+    // return rclcpp_lifecycle::node_interfaces::LifecycleNodeInterface::CallbackReturn::ERROR;
   }
 
   RCLCPP_INFO_STREAM(get_logger(),
@@ -216,14 +216,14 @@ QualisysDriverNode::on_configure(const rclcpp_lifecycle::State &) {
     RCLCPP_FATAL_STREAM(
         get_logger(), "Reading 6DOF body settings failed during intialization\n"
                           << "QTM error: " << port_protocol_.GetErrorString());
-    return CallbackReturn::ERROR;
+    // return rclcpp_lifecycle::node_interfaces::LifecycleNodeInterface::CallbackReturn::ERROR;
   }
   // Read system settings
   if (!port_protocol_.ReadCameraSystemSettings()) {
     RCLCPP_FATAL_STREAM(
         get_logger(), "Failed to read system settings during intialization\n"
                           << "QTM error: " << port_protocol_.GetErrorString());
-    return CallbackReturn::ERROR;
+    // return rclcpp_lifecycle::node_interfaces::LifecycleNodeInterface::CallbackReturn::ERROR;
   }
   // Start streaming data frames
   unsigned int system_frequency = port_protocol_.GetSystemFrequency();
@@ -252,36 +252,36 @@ QualisysDriverNode::on_configure(const rclcpp_lifecycle::State &) {
                                                CRTProtocol::cComponent6d);
   RCLCPP_INFO(get_logger(), "Frame rate: %f frames per second", frame_rate);
 
-  return CallbackReturn::SUCCESS;
+  return rclcpp_lifecycle::node_interfaces::LifecycleNodeInterface::CallbackReturn::SUCCESS;
 }
 
-CallbackReturn
+rclcpp_lifecycle::node_interfaces::LifecycleNodeInterface::CallbackReturn
 QualisysDriverNode::on_activate(const rclcpp_lifecycle::State &) {
   RCLCPP_INFO(get_logger(), "Activating");
   qualisys_pub_->on_activate();
   qualisys_pose_pub_->on_activate();
   timer_->reset();
 
-  return CallbackReturn::SUCCESS;
+  return rclcpp_lifecycle::node_interfaces::LifecycleNodeInterface::CallbackReturn::SUCCESS;
 }
 
-CallbackReturn
+rclcpp_lifecycle::node_interfaces::LifecycleNodeInterface::CallbackReturn
 QualisysDriverNode::on_deactivate(const rclcpp_lifecycle::State &) {
   RCLCPP_INFO(get_logger(), "Deactivating");
   qualisys_pub_->on_deactivate();
   qualisys_pose_pub_->on_deactivate();
   timer_->cancel();
 
-  return CallbackReturn::SUCCESS;
+  return rclcpp_lifecycle::node_interfaces::LifecycleNodeInterface::CallbackReturn::SUCCESS;
 }
 
-CallbackReturn QualisysDriverNode::on_cleanup(const rclcpp_lifecycle::State &) {
+rclcpp_lifecycle::node_interfaces::LifecycleNodeInterface::CallbackReturn QualisysDriverNode::on_cleanup(const rclcpp_lifecycle::State &) {
   RCLCPP_INFO(get_logger(), "Cleaning up");
 
-  return CallbackReturn::SUCCESS;
+  return rclcpp_lifecycle::node_interfaces::LifecycleNodeInterface::CallbackReturn::SUCCESS;
 }
 
-CallbackReturn
+rclcpp_lifecycle::node_interfaces::LifecycleNodeInterface::CallbackReturn
 QualisysDriverNode::on_shutdown(const rclcpp_lifecycle::State &) {
   RCLCPP_INFO(get_logger(), "Shutting down");
 
@@ -290,7 +290,7 @@ QualisysDriverNode::on_shutdown(const rclcpp_lifecycle::State &) {
   port_protocol_.StreamFramesStop();
   port_protocol_.Disconnect();
 
-  return CallbackReturn::SUCCESS;
+  return rclcpp_lifecycle::node_interfaces::LifecycleNodeInterface::CallbackReturn::SUCCESS;
 }
 } // namespace qualisys_driver
 
