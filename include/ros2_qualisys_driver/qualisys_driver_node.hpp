@@ -46,7 +46,6 @@ public:
 
 private:
 
-  void create_qualisys_publisher();
 
   void create_timer_callback();
 
@@ -89,11 +88,13 @@ private:
   // (no need to initialize)
   CRTPacket* prt_packet_;
 
-  std::shared_ptr<rclcpp_lifecycle::LifecyclePublisher<
-    nav_msgs::msg::Odometry>> qualisys_pub_;
+  // std::shared_ptr<rclcpp_lifecycle::LifecyclePublisher<
+    // nav_msgs::msg::Odometry>> qualisys_pub_;
 
-  std::shared_ptr<rclcpp_lifecycle::LifecyclePublisher<geometry_msgs::msg::Pose>>
-      qualisys_pose_pub_;
+  // std::shared_ptr<rclcpp_lifecycle::LifecyclePublisher<geometry_msgs::msg::Pose>>
+      // qualisys_pose_pub_;
+
+  std::map<std::string, std::shared_ptr<rclcpp_lifecycle::LifecyclePublisher<geometry_msgs::msg::Pose>>> qualisys_pose_pubs_;
 
   // std::shared_ptr<rclcpp::Publisher<nav_msgs::msg::Odometry>> qualisys_pub_;
 
