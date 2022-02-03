@@ -43,13 +43,16 @@ set(dependencies
     geometry_msgs
 )
 
+add_compile_options(-fPIC)
+add_subdirectory(include/qualisys_cpp_sdk)
+
 set(QUALISYS_DRIVER_LIB qualisys_driver)
-add_library(${QUALISYS_DRIVER_LIB} 
+add_library(${QUALISYS_DRIVER_LIB} SHARED
             src/qualisys_driver_node.cpp
-            include/ros2_qualisys_driver/RTProtocol.cpp
-            include/ros2_qualisys_driver/Markup.cpp
-            include/ros2_qualisys_driver/RTPacket.cpp
-            include/ros2_qualisys_driver/Network.cpp
+            # include/ros2_qualisys_driver/RTProtocol.cpp
+            # include/ros2_qualisys_driver/Markup.cpp
+            # include/ros2_qualisys_driver/RTPacket.cpp
+            # include/ros2_qualisys_driver/Network.cpp
 )
 
 target_include_directories(${QUALISYS_DRIVER_LIB}
@@ -60,12 +63,13 @@ $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}>
                             ${lifecycle_msgs_INCLUDE_DIRS}
                             ${nav_msgs_INCLUDE_DIRS}
                             ${geometry_msgs_INCLUDE_DIRS}
-                              ${rclcpp_lifecycle_INCLUDE_DIRS}
+                            ${rclcpp_lifecycle_INCLUDE_DIRS}
 )
 
 # ament_target_dependencies(${QUALISYS_DRIVER_LIB} ${dependencies})
 target_link_libraries(${QUALISYS_DRIVER_LIB} PUBLIC 
   Eigen3::Eigen
+  qualisys_cpp_sdk
   rclcpp::rclcpp
   rclcpp_lifecycle::rclcpp_lifecycle
   ${rclcpp_components_LIBRARIES}
@@ -111,7 +115,7 @@ install(
 )
 
 install(
-  TARGETS ${QUALISYS_DRIVER_LIB} ${QUALISYS_DRIVER_EXE}
+  TARGETS ${QUALISYS_DRIVER_LIB} qualisys_cpp_sdk ${QUALISYS_DRIVER_EXE}
   EXPORT export_${QUALISYS_DRIVER_LIB}
   LIBRARY DESTINATION lib
   ARCHIVE DESTINATION lib

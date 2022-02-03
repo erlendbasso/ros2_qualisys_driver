@@ -108,7 +108,12 @@ bool QualisysDriverNode::get_rt_packet() {
   CRTPacket::EPacketType e_type;
   bool is_ok = false;
 
-  if (port_protocol_.ReceiveRTPacket(e_type, true)) {
+  auto response = port_protocol_.Receive(e_type, true);
+
+  // this is deprecated
+  // if (port_protocol_.ReceiveRTPacket(e_type, true)) {
+
+    if (response == CNetwork::ResponseType::success) {
     switch (e_type) {
     // Case 1 - sHeader.nType 0 indicates an error
     case CRTPacket::PacketError:

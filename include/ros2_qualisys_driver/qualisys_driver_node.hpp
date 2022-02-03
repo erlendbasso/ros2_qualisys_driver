@@ -22,7 +22,8 @@
 
 // #include "realtime_tools/realtime_publisher.h"
 
-#include "ros2_qualisys_driver/RTProtocol.h"
+// #include "ros2_qualisys_driver/RTProtocol.h"
+#include "qualisys_cpp_sdk/RTProtocol.h"
 
 #include "nav_msgs/msg/odometry.hpp"
 
