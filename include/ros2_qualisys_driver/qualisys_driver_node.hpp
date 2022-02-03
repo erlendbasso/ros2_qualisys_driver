@@ -81,6 +81,8 @@ private:
   
   bool is_subject_tracked_{false};
 
+  std::map<std::string, bool> is_subjects_tracked_;
+
   // Protocol to connect to the server
   CRTProtocol port_protocol_;
 
