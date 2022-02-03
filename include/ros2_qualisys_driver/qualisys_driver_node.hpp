@@ -26,7 +26,7 @@
 
 #include "nav_msgs/msg/odometry.hpp"
 
-#include "geometry_msgs/msg/pose.hpp"
+#include "geometry_msgs/msg/pose_stamped.hpp"
 
 namespace qualisys_driver
 {
@@ -96,7 +96,7 @@ private:
   // std::shared_ptr<rclcpp_lifecycle::LifecyclePublisher<geometry_msgs::msg::Pose>>
       // qualisys_pose_pub_;
 
-  std::map<std::string, std::shared_ptr<rclcpp_lifecycle::LifecyclePublisher<geometry_msgs::msg::Pose>>> qualisys_pose_pubs_;
+  std::map<std::string, std::shared_ptr<rclcpp_lifecycle::LifecyclePublisher<geometry_msgs::msg::PoseStamped>>> qualisys_pose_pubs_;
 
   // std::shared_ptr<rclcpp::Publisher<nav_msgs::msg::Odometry>> qualisys_pub_;
 

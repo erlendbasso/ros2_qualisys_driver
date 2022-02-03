@@ -33,7 +33,7 @@ void QualisysDriverNode::create_timer_callback() {
         // subject name not fond
         RCLCPP_INFO(get_logger(), "Tracking subject: %s ",
                     subject_name.c_str());
-        qualisys_pose_pubs_[subject_name] = this->create_publisher<geometry_msgs::msg::Pose>(
+        qualisys_pose_pubs_[subject_name] = this->create_publisher<geometry_msgs::msg::PoseStamped>(
           "/qualisys/" + subject_name + "/pose", rclcpp::QoS(1));
 
         qualisys_pose_pubs_[subject_name]->on_activate();
@@ -84,17 +84,17 @@ void QualisysDriverNode::create_timer_callback() {
       // const auto current_time = this->now();
       const auto current_time = this->get_clock()->now();
 
-        geometry_msgs::msg::Pose pose_message;
-        // pose_message.header.stamp = current.time;
-        pose_message.position.x = pos(0);
-        pose_message.position.y = pos(1);
-        pose_message.position.z = pos(2);
-        pose_message.orientation.x = quat.x();
-        pose_message.orientation.y = quat.y();
-        pose_message.orientation.z = quat.z();
-        pose_message.orientation.w = quat.w();
+      geometry_msgs::msg::PoseStamped pose_message;
+      pose_message.header.stamp = current_time;
+      pose_message.pose.position.x = pos(0);
+      pose_message.pose.position.y = pos(1);
+      pose_message.pose.position.z = pos(2);
+      pose_message.pose.orientation.x = quat.x();
+      pose_message.pose.orientation.y = quat.y();
+      pose_message.pose.orientation.z = quat.z();
+      pose_message.pose.orientation.w = quat.w();
 
-        qualisys_pose_pubs_[subject_name]->publish(pose_message);
+      qualisys_pose_pubs_[subject_name]->publish(pose_message);
     }
   };
 
