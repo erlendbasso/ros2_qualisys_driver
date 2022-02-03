@@ -94,6 +94,12 @@ endif()
 
 target_compile_features(${QUALISYS_DRIVER_EXE} PUBLIC cxx_std_14)
 
+# Install launch files.
+install(DIRECTORY
+  launch
+  DESTINATION share/${PROJECT_NAME}/
+)
+
 install(
   DIRECTORY include/
   DESTINATION include

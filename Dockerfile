@@ -37,11 +37,11 @@ WORKDIR /tmp
 #     && cmake --build build/default -j`nproc` \
 #     && cmake --build build/default --target install
 
-RUN git clone https://github.com/strasdat/Sophus.git /tmp/Sophus\
-    && cd /tmp/Sophus \
-    && mkdir build && cd build \
-    && cmake .. -DCMAKE_BUILD_TYPE=Release \
-    && make install
+# RUN git clone https://github.com/strasdat/Sophus.git /tmp/Sophus\
+#     && cd /tmp/Sophus \
+#     && mkdir build && cd build \
+#     && cmake .. -DCMAKE_BUILD_TYPE=Release \
+#     && make install
 
 # RUN rosdep update
 
