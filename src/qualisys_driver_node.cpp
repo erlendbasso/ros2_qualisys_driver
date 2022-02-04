@@ -15,9 +15,16 @@ QualisysDriverNode::QualisysDriverNode(const std::string &node_name,
       udp_port_(declare_parameter("udp_port").get<int>()),
       minor_protocol_version_(
           declare_parameter("qtm_minor_protocol_version").get<int>()),
-      subject_name_(declare_parameter("subject_name").get<std::string>()) {
+      subject_name_(declare_parameter("subject_name").get<std::string>()) 
+  {
+  callback_group_qualisys_ =
+      this->create_callback_group(rclcpp::CallbackGroupType::MutuallyExclusive);
+  callback_group_pub_ =
+      this->create_callback_group(rclcpp::CallbackGroupType::MutuallyExclusive);
+
   create_qualisys_publisher();
   create_timer_callback();
+  create_pub_callback();
 }
 
 void QualisysDriverNode::create_qualisys_publisher() {
@@ -125,9 +132,23 @@ void QualisysDriverNode::create_timer_callback() {
       qualisys_pose_pub_->publish(pose_message);
   };
 
-  timer_ = this->create_wall_timer(update_period_, state_timer_callback);
+  timer_ = this->create_wall_timer(update_period_, state_timer_callback, callback_group_qualisys_);
   // cancel immediately to prevent triggering it in this state
   timer_->cancel();
+}
+
+void QualisysDriverNode::create_pub_callback() {
+  auto pub_timer_callback = [this]() {
+    // if (realtime_qualisys_pub_->trylock())
+    // {
+    // realtime_qualisys_pub_->lock();
+    // realtime_qualisys_pub_->unlockAndPublish();
+    // }
+    RCLCPP_INFO_STREAM(get_logger(), "Test from other cb group...");
+  };
+  pub_timer_ = this->create_wall_timer(update_period_, pub_timer_callback,
+                                       callback_group_pub_);
+  pub_timer_->cancel();
 }
 
 bool QualisysDriverNode::get_rt_packet() {
@@ -261,6 +282,7 @@ QualisysDriverNode::on_activate(const rclcpp_lifecycle::State &) {
   qualisys_pub_->on_activate();
   qualisys_pose_pub_->on_activate();
   timer_->reset();
+  pub_timer_->reset();
 
   return rclcpp_lifecycle::node_interfaces::LifecycleNodeInterface::CallbackReturn::SUCCESS;
 }
@@ -271,6 +293,7 @@ QualisysDriverNode::on_deactivate(const rclcpp_lifecycle::State &) {
   qualisys_pub_->on_deactivate();
   qualisys_pose_pub_->on_deactivate();
   timer_->cancel();
+  pub_timer_->reset();
 
   return rclcpp_lifecycle::node_interfaces::LifecycleNodeInterface::CallbackReturn::SUCCESS;
 }

@@ -50,6 +50,8 @@ private:
 
   void create_timer_callback();
 
+  void create_pub_callback();
+
   bool get_rt_packet();
 
   CallbackReturn on_configure(const rclcpp_lifecycle::State &) override;
@@ -103,7 +105,11 @@ private:
   // std::shared_ptr<realtime_tools::RealtimePublisher<geometry_msgs::msg::Pose>>
       // realtime_qualisys_pose_pub_{nullptr};
 
+  rclcpp::CallbackGroup::SharedPtr callback_group_qualisys_;
+  rclcpp::CallbackGroup::SharedPtr callback_group_pub_;
+
   rclcpp::TimerBase::SharedPtr timer_;
+  rclcpp::TimerBase::SharedPtr pub_timer_;
 
   nav_msgs::msg::Odometry odometry_message_;
 };
