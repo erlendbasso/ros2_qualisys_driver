@@ -27,7 +27,7 @@ void QualisysDriverNode::create_timer_callback() {
     int body_count = prt_packet_->Get6DOFBodyCount();
 
     for (int i = 0; i < body_count; i++) {
-      std::string subject_name = port_protocol_.Get6DOFBodyName(i);
+      std::string subject_name(port_protocol_.Get6DOFBodyName(i));
 
       if (qualisys_pose_pubs_.find(subject_name) == qualisys_pose_pubs_.end()) {
         // subject name not fond
