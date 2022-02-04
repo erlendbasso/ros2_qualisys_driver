@@ -40,7 +40,7 @@ def generate_launch_description():
     # with open(param_config, 'r') as f:
     #     params = yaml.safe_load(f)["ros2_qualisys_driver"]["ros__parameters"]
 
-    config_qualisys = os.path.join(get_package_share_directory('hybrid_observer_ros2'),
+    config_qualisys = os.path.join(get_package_share_directory('ros2_qualisys_driver'),
                         'params', 'params.yaml')
 
     ld = LaunchDescription()
