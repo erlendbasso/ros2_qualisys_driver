@@ -31,7 +31,7 @@ void QualisysDriverNode::create_timer_callback() {
 
       if (qualisys_pose_pubs_.find(subject_name) == qualisys_pose_pubs_.end()) {
         // subject name not fond
-        RCLCPP_INFO(get_logger(), "Tracking subject: %s ",
+        RCLCPP_INFO(get_logger(), "New subject: %s ",
                     subject_name.c_str());
         qualisys_pose_pubs_[subject_name] = this->create_publisher<geometry_msgs::msg::PoseStamped>(
           "/qualisys/" + subject_name + "/pose", rclcpp::QoS(1));
@@ -51,7 +51,7 @@ void QualisysDriverNode::create_timer_callback() {
       for (unsigned int i = 0; i < matrix_size; i++) {
         if (std::isnan(rot_array[i])) {
           nan_in_matrix = true;
-          break;
+          continue;
         }
       }
       if (std::isnan(x) || std::isnan(y) || std::isnan(z) || nan_in_matrix) {
@@ -61,7 +61,7 @@ void QualisysDriverNode::create_timer_callback() {
           RCLCPP_WARN(get_logger(), "Lost track of subject: %s ",
                       subject_name.c_str());
         }
-        return;
+        continue;
       }
 
       // Convert the rotation matrix to a quaternion
@@ -75,7 +75,7 @@ void QualisysDriverNode::create_timer_callback() {
 
       if (!is_subjects_tracked_[subject_name]) {
         is_subjects_tracked_[subject_name] = true;
-        RCLCPP_INFO(get_logger(), "Tracking subject: %s ", subject_name_.c_str());
+        RCLCPP_INFO(get_logger(), "Tracking subject: %s ", subject_name.c_str());
 
         qualisys_pose_pubs_[subject_name]->on_activate();
       }
