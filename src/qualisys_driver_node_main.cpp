@@ -31,7 +31,7 @@ int main(int argc, char *argv[])
   rclcpp::executors::MultiThreadedExecutor executor;
   const auto qualisys_node =
       std::make_shared<qualisys_driver::QualisysDriverNode>(
-          rclcpp::NodeOptions());
+          "qualisys_driver");
 
   executor.add_node(qualisys_node->get_node_base_interface());
 

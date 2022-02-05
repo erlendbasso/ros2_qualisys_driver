@@ -5,6 +5,7 @@
 #include <memory>
 #include <chrono>
 #include <set>
+#include <mutex>
 #include <vector>
 #include <climits>
 
@@ -112,6 +113,10 @@ private:
   rclcpp::TimerBase::SharedPtr pub_timer_;
 
   nav_msgs::msg::Odometry odometry_message_;
+
+  geoemtry_msgs::msg::PoseStamped pose_message_;
+
+  std::mutex pose_msg_mut_;
 };
 
 }

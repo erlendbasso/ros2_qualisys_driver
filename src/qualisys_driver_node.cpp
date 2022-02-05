@@ -119,17 +119,18 @@ void QualisysDriverNode::create_timer_callback() {
       qualisys_pub_->publish(odometry_message_);
       // }
 
-      geometry_msgs::msg::PoseStamped pose_message;
-      pose_message.header.stamp = current_time;
-      pose_message.pose.position.x = pos(0);
-      pose_message.pose.position.y = pos(1);
-      pose_message.pose.position.z = pos(2);
-      pose_message.pose.orientation.x = quat.x();
-      pose_message.pose.orientation.y = quat.y();
-      pose_message.pose.orientation.z = quat.z();
-      pose_message.pose.orientation.w = quat.w();
+      // geometry_msgs::msg::PoseStamped pose_message;
+      const std::lock_guard<std::mutex> lock(pose_msg_mut_);
 
-      qualisys_pose_pub_->publish(pose_message);
+      pose_message_.header.stamp = current_time;
+      pose_message_.pose.position.x = pos(0);
+      pose_message_.pose.position.y = pos(1);
+      pose_message_.pose.position.z = pos(2);
+      pose_message_.pose.orientation.x = quat.x();
+      pose_message_.pose.orientation.y = quat.y();
+      pose_message_.pose.orientation.z = quat.z();
+      pose_message_.pose.orientation.w = quat.w();
+
   };
 
   timer_ = this->create_wall_timer(update_period_, state_timer_callback, callback_group_qualisys_);
@@ -139,12 +140,17 @@ void QualisysDriverNode::create_timer_callback() {
 
 void QualisysDriverNode::create_pub_callback() {
   auto pub_timer_callback = [this]() {
+
     // if (realtime_qualisys_pub_->trylock())
     // {
     // realtime_qualisys_pub_->lock();
     // realtime_qualisys_pub_->unlockAndPublish();
     // }
-    RCLCPP_INFO_STREAM(get_logger(), "Test from other cb group...");
+    const std::lock_guard<std::mutex> lock(pose_msg_mut_);
+
+    qualisys_pose_pub_->publish(pose_message_);
+
+    // RCLCPP_INFO_STREAM(get_logger(), "Test from other cb group...");
   };
   pub_timer_ = this->create_wall_timer(update_period_, pub_timer_callback,
                                        callback_group_pub_);
