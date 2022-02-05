@@ -1,4 +1,4 @@
- #!/usr/bin/python3
+#!/usr/bin/python3
 
 import os
 import pathlib
@@ -38,10 +38,10 @@ def generate_launch_description():
     # config_dir = os.path.join(get_package_share_directory('ros2_qualisys_driver'), 'params')
     # param_config = os.path.join(config_dir, "params.yaml")
     # with open(param_config, 'r') as f:
-    #     params = yaml.safe_load(f)["ros2_qualisys_driver"]["ros__parameters"]
+    #     params_qualisys = yaml.safe_load(f)["ros2_qualisys_driver"]["ros__parameters"]
 
     config_qualisys = os.path.join(get_package_share_directory('ros2_qualisys_driver'),
-                        'params', 'params.yaml')
+                                   'params', 'params.yaml')
 
     ld = LaunchDescription()
 
@@ -49,12 +49,15 @@ def generate_launch_description():
     qualisys_node = LifecycleNode(
         package='ros2_qualisys_driver',              # must match name in config -> YAML
         executable='qualisys_driver_exe',
-        name='ros2_qualisys_driver',                            # must match node name in config -> YAML
+        # must match node name in config -> YAML
+        name='ros2_qualisys_driver',
         emulate_tty=True,
+        remappings=[
+            ("qualisys/rb5/pose", "mavros/vision_pose/pose")
+        ],
         output='screen',
-        parameters = [config_qualisys]
+        parameters=[config_qualisys]
     )
-
 
     # Create the launch configuration variables
     # Make the node take the 'configure' transition
