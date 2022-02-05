@@ -45,6 +45,12 @@ public:
       const std::string & node_name,
       const rclcpp::NodeOptions & options = rclcpp::NodeOptions());
 
+  unsigned int get_update_rate() {
+    return 1.0 / (update_period_.count() / (1000.0));
+  };
+
+  void publish_pose();
+
 private:
 
   void create_qualisys_publisher();
@@ -52,6 +58,8 @@ private:
   void create_timer_callback();
 
   void create_pub_callback();
+
+
 
   bool get_rt_packet();
 
@@ -114,7 +122,7 @@ private:
 
   nav_msgs::msg::Odometry odometry_message_;
 
-  geoemtry_msgs::msg::PoseStamped pose_message_;
+  geometry_msgs::msg::PoseStamped pose_message_;
 
   std::mutex pose_msg_mut_;
 };

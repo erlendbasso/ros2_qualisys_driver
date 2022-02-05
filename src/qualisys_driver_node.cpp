@@ -146,15 +146,21 @@ void QualisysDriverNode::create_pub_callback() {
     // realtime_qualisys_pub_->lock();
     // realtime_qualisys_pub_->unlockAndPublish();
     // }
-    const std::lock_guard<std::mutex> lock(pose_msg_mut_);
+    // const std::lock_guard<std::mutex> lock(pose_msg_mut_);
 
-    qualisys_pose_pub_->publish(pose_message_);
+    // qualisys_pose_pub_->publish(pose_message_);
 
     // RCLCPP_INFO_STREAM(get_logger(), "Test from other cb group...");
   };
   pub_timer_ = this->create_wall_timer(update_period_, pub_timer_callback,
                                        callback_group_pub_);
   pub_timer_->cancel();
+}
+
+void QualisysDriverNode::publish_pose() {
+  const std::lock_guard<std::mutex> lock(pose_msg_mut_);
+
+  qualisys_pose_pub_->publish(pose_message_);
 }
 
 bool QualisysDriverNode::get_rt_packet() {
