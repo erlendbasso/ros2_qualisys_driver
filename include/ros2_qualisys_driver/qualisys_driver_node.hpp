@@ -1,3 +1,5 @@
+#pragma once
+
 #include <cmath>
 #include <string>
 #include <memory>
@@ -24,7 +26,7 @@
 
 #include "nav_msgs/msg/odometry.hpp"
 
-#include "geometry_msgs/msg/pose.hpp"
+#include "geometry_msgs/msg/pose_stamped.hpp"
 
 namespace qualisys_driver
 {
@@ -44,7 +46,6 @@ public:
 
 private:
 
-  void create_qualisys_publisher();
 
   void create_timer_callback();
 
@@ -75,10 +76,7 @@ private:
   // Major protocol version is always 1, so only the minor version can be set
   const int major_protocol_version_{1};
   
-  // Subject name
-  std::string subject_name_;
-  
-  bool is_subject_tracked_{false};
+  std::map<std::string, bool> is_subjects_tracked_;
 
   // Protocol to connect to the server
   CRTProtocol port_protocol_;
@@ -87,19 +85,8 @@ private:
   // (no need to initialize)
   CRTPacket* prt_packet_;
 
-  std::shared_ptr<rclcpp_lifecycle::LifecyclePublisher<
-    nav_msgs::msg::Odometry>> qualisys_pub_;
 
-  std::shared_ptr<rclcpp_lifecycle::LifecyclePublisher<geometry_msgs::msg::Pose>>
-      qualisys_pose_pub_;
-
-  // std::shared_ptr<rclcpp::Publisher<nav_msgs::msg::Odometry>> qualisys_pub_;
-
-  // std::shared_ptr<realtime_tools::RealtimePublisher<nav_msgs::msg::Odometry>>
-  // realtime_qualisys_pub_{nullptr};
-
-  // std::shared_ptr<realtime_tools::RealtimePublisher<geometry_msgs::msg::Pose>>
-      // realtime_qualisys_pose_pub_{nullptr};
+  std::map<std::string, std::shared_ptr<rclcpp_lifecycle::LifecyclePublisher<geometry_msgs::msg::PoseStamped>>> qualisys_pose_pubs_;
 
   rclcpp::TimerBase::SharedPtr timer_;
 
