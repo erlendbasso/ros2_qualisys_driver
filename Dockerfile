@@ -1,7 +1,6 @@
-FROM ros:galactic-ros-base-focal
+FROM  osrf/ros:humble-desktop
 
-
-ENV ROS_DISTRO=galactic
+ENV ROS_DISTRO=humble
 
 
 RUN echo "source /opt/ros/${ROS_DISTRO}/setup.bash && echo Sourced ROS-${ROS_DISTRO}" >> /root/.bashrc;
@@ -9,7 +8,7 @@ RUN echo "source /opt/ros/${ROS_DISTRO}/setup.bash && echo Sourced ROS-${ROS_DIS
 # RUN apt-get update && apt-get install 
 
 # INSTALL OPENCV
-RUN apt-get update && apt-get install -y cmake g++ wget unzip ros-galactic-realtime-tools
+RUN apt-get update && apt-get install -y cmake g++ wget unzip 
 
 
 WORKDIR /tmp

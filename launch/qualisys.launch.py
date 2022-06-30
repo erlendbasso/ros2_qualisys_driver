@@ -51,6 +51,7 @@ def generate_launch_description():
         executable='qualisys_driver_exe',
         # must match node name in config -> YAML
         name='ros2_qualisys_driver',
+        namespace='qualisys_driver',
         emulate_tty=True,
         remappings=[
             ("qualisys/rb5/pose", "mavros/vision_pose/pose")

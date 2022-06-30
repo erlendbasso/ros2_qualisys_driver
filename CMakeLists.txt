@@ -1,4 +1,4 @@
-cmake_minimum_required(VERSION 3.5)
+cmake_minimum_required(VERSION 3.10)
 project(ros2_qualisys_driver)
 
 # Default to C99
@@ -57,10 +57,11 @@ target_include_directories(${QUALISYS_DRIVER_LIB}
                             $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
 $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}>
                             $<INSTALL_INTERFACE:include>
+                            ${rclcpp_components_INCLUDE_DIRS}
                             ${lifecycle_msgs_INCLUDE_DIRS}
                             ${nav_msgs_INCLUDE_DIRS}
                             ${geometry_msgs_INCLUDE_DIRS}
-                              ${rclcpp_lifecycle_INCLUDE_DIRS}
+                            ${rclcpp_lifecycle_INCLUDE_DIRS}
 )
 
 # ament_target_dependencies(${QUALISYS_DRIVER_LIB} ${dependencies})
@@ -69,7 +70,6 @@ target_link_libraries(${QUALISYS_DRIVER_LIB} PUBLIC
   rclcpp::rclcpp
   rclcpp_lifecycle::rclcpp_lifecycle
   ${rclcpp_components_LIBRARIES}
-  ${rclcpp_lifecycle_LIBRARIES}
   ${nav_msgs_LIBRARIES}
   ${geometry_msgs_LIBRARIES}
   ${lifecycle_msgs_LIBRARIES}
