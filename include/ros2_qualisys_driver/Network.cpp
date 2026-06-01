@@ -189,7 +189,7 @@ bool CNetwork::Connected() const
 
 bool CNetwork::CreateUDPSocket(unsigned short &nUDPPort, bool bBroadcast)
 {
-    if (nUDPPort == 0 || nUDPPort >= 1023)
+    if (nUDPPort == 0 || nUDPPort >= 1024)
     {
         SOCKET tempSocket = INVALID_SOCKET;
 
@@ -548,8 +548,8 @@ bool CNetwork::SendUDPBroadcast(const char* sendBuf, int size, short port, unsig
                 }
                 ifa = ifa->ifa_next;
             }
+            freeifaddrs(ifap);
         }
-        freeifaddrs(ifap);
 #endif
     }
 

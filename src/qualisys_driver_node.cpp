@@ -239,9 +239,9 @@ QualisysDriverNode::on_configure(const rclcpp_lifecycle::State &) {
   unsigned short udp_stream_port = 0;
   unsigned short *udp_port_ptr = nullptr;
   if (udp_port_ > 0) {
-    if (udp_port_ < 1023 || udp_port_ > USHRT_MAX) {
+    if (udp_port_ < 1024 || udp_port_ > USHRT_MAX) {
       RCLCPP_FATAL(get_logger(),
-                   "Invalid UDP stream port %i. Valid range is 1023-65535, "
+                   "Invalid UDP stream port %i. Valid range is 1024-65535, "
                    "or 0/-1 for TCP.",
                    udp_port_);
       return CallbackReturn::ERROR;
