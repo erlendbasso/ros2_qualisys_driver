@@ -84,6 +84,8 @@ private:
   
   std::map<std::string, bool> is_subjects_tracked_;
 
+  std::map<std::string, std::string> subject_topic_names_;
+
   // Protocol to connect to the server
   CRTProtocol port_protocol_;
 

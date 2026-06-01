@@ -1464,9 +1464,19 @@ int CRTProtocol::ReceiveRTPacket(CRTPacket::EPacketType &eType, bool bSkipEvents
         {
             if (mpFileBuffer != nullptr)
             {
+                const unsigned int nBufferOffset = sizeof(int) * 2;
+                if (mDataBuff.size() <= nBufferOffset)
+                {
+                    strcpy(maErrorStr, "Receive buffer too small.");
+                    fclose(mpFileBuffer);
+                    mpFileBuffer = nullptr;
+                    return -1;
+                }
+                const unsigned int nBufferPayloadSize =
+                    static_cast<unsigned int>(mDataBuff.size()) - nBufferOffset;
                 rewind(mpFileBuffer); // Start from the beginning
-                if (fwrite(mDataBuff.data() + sizeof(int) * 2, 1, nRecvedTotal - sizeof(int) * 2, mpFileBuffer) !=
-                    nRecvedTotal - sizeof(int) * 2)
+                if (fwrite(mDataBuff.data() + nBufferOffset, 1, nRecvedTotal - nBufferOffset, mpFileBuffer) !=
+                    nRecvedTotal - nBufferOffset)
                 {
                     strcpy(maErrorStr, "Failed to write file to disk.");
                     fclose(mpFileBuffer);
@@ -1477,12 +1487,12 @@ int CRTProtocol::ReceiveRTPacket(CRTPacket::EPacketType &eType, bool bSkipEvents
                 while (nRecvedTotal < nFrameSize) 
                 {
                     nReadSize = nFrameSize - nRecvedTotal;
-                    if (nFrameSize > mDataBuff.size())                                                                                                                                                                                                                                                                                             
+                    if (nReadSize > nBufferPayloadSize)
                     {
-                        nReadSize = mDataBuff.size();
+                        nReadSize = nBufferPayloadSize;
                     }
                     // As long as we haven't received enough data, wait for more
-                    nRecved = mpoNetwork->Receive(&(mDataBuff.data()[sizeof(int) * 2]), nReadSize, false, nTimeout);
+                    nRecved = mpoNetwork->Receive(&(mDataBuff.data()[nBufferOffset]), nReadSize, false, nTimeout);
                     if (nRecved == 0)
                     {
                         strcpy(maErrorStr, "File packet receive timeout.");
@@ -1497,7 +1507,7 @@ int CRTProtocol::ReceiveRTPacket(CRTPacket::EPacketType &eType, bool bSkipEvents
                         mpFileBuffer = nullptr;
                         return -1;
                     }
-                    if (fwrite(mDataBuff.data() + sizeof(int) * 2, 1, nRecved, mpFileBuffer) != (size_t)nRecved)
+                    if (fwrite(mDataBuff.data() + nBufferOffset, 1, nRecved, mpFileBuffer) != (size_t)nRecved)
                     {
                         strcpy(maErrorStr, "Failed to write file to disk.");
                         fclose(mpFileBuffer);

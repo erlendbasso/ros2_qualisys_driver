@@ -388,7 +388,9 @@ int CNetwork::Receive(char* rtDataBuff, int dataBufSize, bool header, int timeou
                 int retrySelectRes = select(tcpNfds, &tcpReadFDs, nullptr, nullptr, retryTimevalPtr);
                 if (retrySelectRes == 0)
                 {
-                    return recieved;
+                    strcpy(mErrorStr, "Timed out while reading TCP packet header.");
+                    recieved = SOCKET_ERROR;
+                    break;
                 }
                 if (retrySelectRes < 0)
                 {
@@ -641,8 +643,8 @@ bool CNetwork::IsLocalAddress(unsigned int nAddr) const
                 }
                 pNextAd = pNextAd->ifa_next;
             }
+            freeifaddrs(pAdptInfo);
         }
-        freeifaddrs(pAdptInfo);
 #endif
     return false;
 }

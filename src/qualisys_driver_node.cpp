@@ -3,7 +3,6 @@
 #include <algorithm>
 #include <cctype>
 #include <cmath>
-#include <limits>
 
 namespace {
 
@@ -90,7 +89,23 @@ void QualisysDriverNode::create_timer_callback() {
         continue;
       }
       const std::string subject_name(subject_name_ptr);
-      const std::string topic_subject_name = sanitize_topic_token(subject_name);
+      const std::string sanitized_subject_name =
+          sanitize_topic_token(subject_name);
+
+      auto subject_topic_name = subject_topic_names_.find(subject_name);
+      if (subject_topic_name == subject_topic_names_.end()) {
+        std::string topic_subject_name = sanitized_subject_name;
+        unsigned int collision_index = 2;
+        while (qualisys_pose_pubs_.find(topic_subject_name) !=
+               qualisys_pose_pubs_.end()) {
+          topic_subject_name =
+              sanitized_subject_name + "_" + std::to_string(collision_index++);
+        }
+        subject_topic_name =
+            subject_topic_names_.emplace(subject_name, topic_subject_name).first;
+      }
+
+      const std::string &topic_subject_name = subject_topic_name->second;
 
       if (qualisys_pose_pubs_.find(topic_subject_name) == qualisys_pose_pubs_.end()) {
         if (topic_subject_name != subject_name) {
@@ -105,7 +120,6 @@ void QualisysDriverNode::create_timer_callback() {
             this->create_publisher<geometry_msgs::msg::PoseStamped>(
                 topic_prefix_ + "/" + topic_subject_name + "/pose", qos);
 
-        qualisys_pose_pubs_[topic_subject_name]->on_activate();
         is_subjects_tracked_[topic_subject_name] = false;
       }
 
@@ -223,7 +237,7 @@ QualisysDriverNode::on_configure(const rclcpp_lifecycle::State &) {
     RCLCPP_FATAL(get_logger(), "Server_address parameter empty");
     return CallbackReturn::ERROR;
   }
-  if (base_port_ < 0 || base_port_ > USHRT_MAX) {
+  if (base_port_ <= 0 || base_port_ > USHRT_MAX) {
     RCLCPP_FATAL(get_logger(), "Invalid base port %i", base_port_);
     return CallbackReturn::ERROR;
   }
@@ -313,7 +327,12 @@ QualisysDriverNode::on_configure(const rclcpp_lifecycle::State &) {
     }
     frame_rate = system_frequency;
   }
-  const auto stream_rate_arg = static_cast<unsigned int>(std::round(frame_rate));
+  const auto rounded_frame_rate =
+      static_cast<unsigned int>(std::round(frame_rate));
+  const unsigned int stream_rate_arg =
+      stream_rate_mode == CRTProtocol::EStreamRate::RateFrequency
+          ? std::max(1u, rounded_frame_rate)
+          : rounded_frame_rate;
   if (!port_protocol_.StreamFrames(stream_rate_mode,
                                    stream_rate_arg, // nRateArg
                                    udp_stream_port, // nUDPPort
@@ -345,7 +364,9 @@ QualisysDriverNode::on_deactivate(const rclcpp_lifecycle::State &) {
   RCLCPP_INFO(get_logger(), "Deactivating");
   timer_->cancel();
   for (auto &publisher : qualisys_pose_pubs_) {
-    publisher.second->on_deactivate();
+    if (is_subjects_tracked_[publisher.first]) {
+      publisher.second->on_deactivate();
+    }
     is_subjects_tracked_[publisher.first] = false;
   }
 
@@ -356,10 +377,13 @@ rclcpp_lifecycle::node_interfaces::LifecycleNodeInterface::CallbackReturn Qualis
   RCLCPP_INFO(get_logger(), "Cleaning up");
   timer_->cancel();
   for (auto &publisher : qualisys_pose_pubs_) {
-    publisher.second->on_deactivate();
+    if (is_subjects_tracked_[publisher.first]) {
+      publisher.second->on_deactivate();
+    }
   }
   qualisys_pose_pubs_.clear();
   is_subjects_tracked_.clear();
+  subject_topic_names_.clear();
   if (port_protocol_.Connected()) {
     port_protocol_.StreamFramesStop();
     port_protocol_.Disconnect();
