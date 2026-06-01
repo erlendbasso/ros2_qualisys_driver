@@ -1,5 +1,56 @@
 #include "ros2_qualisys_driver/qualisys_driver_node.hpp"
 
+#include <algorithm>
+#include <cctype>
+#include <cmath>
+#include <limits>
+
+namespace {
+
+std::string sanitize_topic_token(const std::string &name) {
+  std::string token;
+  token.reserve(name.size());
+
+  for (const unsigned char ch : name) {
+    if (std::isalnum(ch) || ch == '_') {
+      token.push_back(static_cast<char>(ch));
+    } else {
+      token.push_back('_');
+    }
+  }
+
+  if (token.empty()) {
+    return "unnamed_body";
+  }
+  if (!(std::isalpha(static_cast<unsigned char>(token.front())) ||
+        token.front() == '_')) {
+    token.insert(token.begin(), '_');
+  }
+  return token;
+}
+
+std::string normalize_topic_prefix(std::string prefix) {
+  prefix.erase(prefix.begin(),
+               std::find_if(prefix.begin(), prefix.end(),
+                            [](char c) { return c != '/'; }));
+  prefix.erase(std::find_if(prefix.rbegin(), prefix.rend(),
+                            [](char c) { return c != '/'; })
+                   .base(),
+               prefix.end());
+  return prefix.empty() ? "qualisys" : prefix;
+}
+
+bool matrix_has_non_finite_values(const float matrix[9]) {
+  for (unsigned int i = 0; i < 9; ++i) {
+    if (!std::isfinite(matrix[i])) {
+      return true;
+    }
+  }
+  return false;
+}
+
+}  // namespace
+
 namespace qualisys_driver {
 
 QualisysDriverNode::QualisysDriverNode(const rclcpp::NodeOptions &options)
@@ -13,8 +64,12 @@ QualisysDriverNode::QualisysDriverNode(const std::string &node_name,
       update_period_{std::chrono::milliseconds(
           declare_parameter<int>("update_period_ms", 10))},
       udp_port_(declare_parameter<int>("udp_port", 14570)),
+      receive_timeout_us_(declare_parameter<int>("receive_timeout_us", 1000)),
+      frame_id_(declare_parameter<std::string>("frame_id", "qualisys")),
+      topic_prefix_(normalize_topic_prefix(
+          declare_parameter<std::string>("topic_prefix", "qualisys"))),
       minor_protocol_version_(
-          declare_parameter<int>("qtm_minor_protocol_version", 18))
+          declare_parameter<int>("qtm_minor_protocol_version", MINOR_VERSION))
   {
     create_timer_callback();
 }
@@ -24,40 +79,52 @@ void QualisysDriverNode::create_timer_callback() {
     if (!get_rt_packet()) {
       return;
     }
-    int body_count = prt_packet_->Get6DOFBodyCount();
+    const unsigned int body_count = prt_packet_->Get6DOFBodyCount();
 
-    for (int i = 0; i < body_count; i++) {
-      std::string subject_name(port_protocol_.Get6DOFBodyName(i));
+    for (unsigned int i = 0; i < body_count; i++) {
+      const char *subject_name_ptr = port_protocol_.Get6DOFBodyName(i);
+      if (subject_name_ptr == nullptr) {
+        RCLCPP_WARN_THROTTLE(
+            get_logger(), *get_clock(), 5000,
+            "Received 6DOF body index %u without matching settings name", i);
+        continue;
+      }
+      const std::string subject_name(subject_name_ptr);
+      const std::string topic_subject_name = sanitize_topic_token(subject_name);
 
-      if (qualisys_pose_pubs_.find(subject_name) == qualisys_pose_pubs_.end()) {
-        // subject name not fond
-        RCLCPP_INFO(get_logger(), "New subject: %s ",
-                    subject_name.c_str());
-        qualisys_pose_pubs_[subject_name] = this->create_publisher<geometry_msgs::msg::PoseStamped>(
-          "/qualisys/" + subject_name + "/pose", rclcpp::QoS(1));
+      if (qualisys_pose_pubs_.find(topic_subject_name) == qualisys_pose_pubs_.end()) {
+        if (topic_subject_name != subject_name) {
+          RCLCPP_WARN(get_logger(), "Sanitized subject '%s' to ROS topic token '%s'",
+                      subject_name.c_str(), topic_subject_name.c_str());
+        }
+        RCLCPP_INFO(get_logger(), "New subject: %s ", subject_name.c_str());
 
-        qualisys_pose_pubs_[subject_name]->on_activate();
-        is_subjects_tracked_[subject_name] = false;
+        rclcpp::QoS qos(rclcpp::KeepLast(1));
+        qos.best_effort();
+        qualisys_pose_pubs_[topic_subject_name] =
+            this->create_publisher<geometry_msgs::msg::PoseStamped>(
+                topic_prefix_ + "/" + topic_subject_name + "/pose", qos);
+
+        qualisys_pose_pubs_[topic_subject_name]->on_activate();
+        is_subjects_tracked_[topic_subject_name] = false;
       }
 
       // Pose of the subject
       const unsigned int matrix_size = 9;
       float x, y, z;
       float rot_array[matrix_size];
-      prt_packet_->Get6DOFBody(i, x, y, z, rot_array);
+      if (!prt_packet_->Get6DOFBody(i, x, y, z, rot_array)) {
+        RCLCPP_WARN_THROTTLE(get_logger(), *get_clock(), 5000,
+                             "Failed to read 6DOF body index %u", i);
+        continue;
+      }
 
       // Check if the subject is tracked by looking for NaN in the received data
-      bool nan_in_matrix = false;
-      for (unsigned int i = 0; i < matrix_size; i++) {
-        if (std::isnan(rot_array[i])) {
-          nan_in_matrix = true;
-          continue;
-        }
-      }
-      if (std::isnan(x) || std::isnan(y) || std::isnan(z) || nan_in_matrix) {
-        if (is_subjects_tracked_[subject_name]) {
-          is_subjects_tracked_[subject_name] = false;
-          qualisys_pose_pubs_[subject_name]->on_deactivate();
+      if (!std::isfinite(x) || !std::isfinite(y) || !std::isfinite(z) ||
+          matrix_has_non_finite_values(rot_array)) {
+        if (is_subjects_tracked_[topic_subject_name]) {
+          is_subjects_tracked_[topic_subject_name] = false;
+          qualisys_pose_pubs_[topic_subject_name]->on_deactivate();
           RCLCPP_WARN(get_logger(), "Lost track of subject: %s ",
                       subject_name.c_str());
         }
@@ -65,19 +132,20 @@ void QualisysDriverNode::create_timer_callback() {
       }
 
       // Convert the rotation matrix to a quaternion
-      Matrix<float, 3, 3> rot_matrix(rot_array);
+      Map<const Matrix<float, 3, 3, ColMajor>> rot_matrix(rot_array);
       Quaterniond quat(rot_matrix.cast<double>());
+      quat.normalize();
       // Check if the subject is beeing tracked
 
       // Convert mm to m
       Vector3d pos(x / 1000.0, y / 1000.0, z / 1000.0);
 
 
-      if (!is_subjects_tracked_[subject_name]) {
-        is_subjects_tracked_[subject_name] = true;
+      if (!is_subjects_tracked_[topic_subject_name]) {
+        is_subjects_tracked_[topic_subject_name] = true;
         RCLCPP_INFO(get_logger(), "Tracking subject: %s ", subject_name.c_str());
 
-        qualisys_pose_pubs_[subject_name]->on_activate();
+        qualisys_pose_pubs_[topic_subject_name]->on_activate();
       }
 
       // const double packet_time = prt_packet_->GetTimeStamp() / 1e6;
@@ -86,6 +154,7 @@ void QualisysDriverNode::create_timer_callback() {
 
       geometry_msgs::msg::PoseStamped pose_message;
       pose_message.header.stamp = current_time;
+      pose_message.header.frame_id = frame_id_;
       pose_message.pose.position.x = pos(0);
       pose_message.pose.position.y = pos(1);
       pose_message.pose.position.z = pos(2);
@@ -94,7 +163,7 @@ void QualisysDriverNode::create_timer_callback() {
       pose_message.pose.orientation.z = quat.z();
       pose_message.pose.orientation.w = quat.w();
 
-      qualisys_pose_pubs_[subject_name]->publish(pose_message);
+      qualisys_pose_pubs_[topic_subject_name]->publish(pose_message);
     }
   };
 
@@ -108,7 +177,9 @@ bool QualisysDriverNode::get_rt_packet() {
   CRTPacket::EPacketType e_type;
   bool is_ok = false;
 
-  if (port_protocol_.ReceiveRTPacket(e_type, true)) {
+  const int received =
+      port_protocol_.ReceiveRTPacket(e_type, true, receive_timeout_us_);
+  if (received > 0) {
     switch (e_type) {
     // Case 1 - sHeader.nType 0 indicates an error
     case CRTPacket::PacketError:
@@ -119,8 +190,8 @@ bool QualisysDriverNode::get_rt_packet() {
 
     // Case 2 - No more data
     case CRTPacket::PacketNoMoreData:
-      RCLCPP_ERROR_STREAM(get_logger(),
-                          "No more data, check if RT capture is active");
+      RCLCPP_WARN_THROTTLE(get_logger(), *get_clock(), 5000,
+                           "No more data, check if RT capture is active");
       break;
 
     // Case 3 - Data received
@@ -133,10 +204,11 @@ bool QualisysDriverNode::get_rt_packet() {
       break;
 
     default:
-      RCLCPP_WARN(get_logger(), "Unhandled CRTPacket type, case: %i", e_type);
+      RCLCPP_WARN_THROTTLE(get_logger(), *get_clock(), 5000,
+                           "Unhandled CRTPacket type, case: %i", e_type);
       break;
     }
-  } else { //
+  } else if (received < 0) {
     RCLCPP_ERROR_STREAM(get_logger(), "QTM error when receiving packet:\n"
                                           << port_protocol_.GetErrorString());
   }
@@ -149,17 +221,36 @@ QualisysDriverNode::on_configure(const rclcpp_lifecycle::State &) {
   // qualisys stuff
   if (server_address_.empty()) {
     RCLCPP_FATAL(get_logger(), "Server_address parameter empty");
-    // return rclcpp_lifecycle::node_interfaces::LifecycleNodeInterface::CallbackReturn::ERROR;
+    return CallbackReturn::ERROR;
+  }
+  if (base_port_ < 0 || base_port_ > USHRT_MAX) {
+    RCLCPP_FATAL(get_logger(), "Invalid base port %i", base_port_);
+    return CallbackReturn::ERROR;
+  }
+  if (update_period_.count() <= 0) {
+    RCLCPP_FATAL(get_logger(), "update_period_ms must be positive");
+    return CallbackReturn::ERROR;
+  }
+  if (receive_timeout_us_ < 0) {
+    RCLCPP_FATAL(get_logger(), "receive_timeout_us must be non-negative");
+    return CallbackReturn::ERROR;
   }
 
   unsigned short udp_stream_port = 0;
   unsigned short *udp_port_ptr = nullptr;
-  if (udp_port_ >= 0 && udp_port_ < USHRT_MAX) {
+  if (udp_port_ > 0) {
+    if (udp_port_ < 1023 || udp_port_ > USHRT_MAX) {
+      RCLCPP_FATAL(get_logger(),
+                   "Invalid UDP stream port %i. Valid range is 1023-65535, "
+                   "or 0/-1 for TCP.",
+                   udp_port_);
+      return CallbackReturn::ERROR;
+    }
     udp_stream_port = static_cast<unsigned short>(udp_port_);
     udp_port_ptr = &udp_stream_port;
-  } else if (udp_port_ < -1 || udp_port_ > USHRT_MAX) {
-    RCLCPP_WARN(get_logger(), "Invalid UDP port %i, falling back to TCP",
-                udp_port_);
+  } else if (udp_port_ < -1) {
+    RCLCPP_FATAL(get_logger(), "Invalid UDP port %i", udp_port_);
+    return CallbackReturn::ERROR;
   }
   // Connecting to the server
   RCLCPP_INFO(get_logger(), "Connecting to QTM server at: %s : %i ",
@@ -174,7 +265,7 @@ QualisysDriverNode::on_configure(const rclcpp_lifecycle::State &) {
                                           << " failed\n"
                                              "Reason: "
                                           << port_protocol_.GetErrorString());
-    // return rclcpp_lifecycle::node_interfaces::LifecycleNodeInterface::CallbackReturn::ERROR;
+    return CallbackReturn::ERROR;
   }
 
   RCLCPP_INFO_STREAM(get_logger(),
@@ -184,22 +275,28 @@ QualisysDriverNode::on_configure(const rclcpp_lifecycle::State &) {
   }
   // Get 6DOF settings
   bool bDataAvailable = false;
-  port_protocol_.Read6DOFSettings(bDataAvailable);
-  if (bDataAvailable == false) {
+  if (!port_protocol_.Read6DOFSettings(bDataAvailable) || bDataAvailable == false) {
     RCLCPP_FATAL_STREAM(
         get_logger(), "Reading 6DOF body settings failed during intialization\n"
                           << "QTM error: " << port_protocol_.GetErrorString());
-    // return rclcpp_lifecycle::node_interfaces::LifecycleNodeInterface::CallbackReturn::ERROR;
+    port_protocol_.Disconnect();
+    return CallbackReturn::ERROR;
   }
   // Read system settings
   if (!port_protocol_.ReadGeneralSettings()) {
     RCLCPP_FATAL_STREAM(
         get_logger(), "Failed to read system settings during intialization\n"
                           << "QTM error: " << port_protocol_.GetErrorString());
-    // return rclcpp_lifecycle::node_interfaces::LifecycleNodeInterface::CallbackReturn::ERROR;
+    port_protocol_.Disconnect();
+    return CallbackReturn::ERROR;
   }
   // Start streaming data frames
   unsigned int system_frequency = port_protocol_.GetSystemFrequency();
+  if (system_frequency == 0) {
+    RCLCPP_FATAL(get_logger(), "QTM reported invalid system frequency 0");
+    port_protocol_.Disconnect();
+    return CallbackReturn::ERROR;
+  }
   CRTProtocol::EStreamRate stream_rate_mode =
       CRTProtocol::EStreamRate::RateAllFrames;
   double dt_ = update_period_.count() / (1000.0);
@@ -216,11 +313,18 @@ QualisysDriverNode::on_configure(const rclcpp_lifecycle::State &) {
     }
     frame_rate = system_frequency;
   }
-  bDataAvailable = port_protocol_.StreamFrames(stream_rate_mode,
-                                               frame_rate,      // nRateArg
-                                               udp_stream_port, // nUDPPort
-                                               nullptr,         // nUDPAddr
-                                               CRTProtocol::cComponent6d);
+  const auto stream_rate_arg = static_cast<unsigned int>(std::round(frame_rate));
+  if (!port_protocol_.StreamFrames(stream_rate_mode,
+                                   stream_rate_arg, // nRateArg
+                                   udp_stream_port, // nUDPPort
+                                   nullptr,         // nUDPAddr
+                                   CRTProtocol::cComponent6d)) {
+    RCLCPP_FATAL_STREAM(get_logger(),
+                        "Failed to start QTM frame streaming: "
+                            << port_protocol_.GetErrorString());
+    port_protocol_.Disconnect();
+    return CallbackReturn::ERROR;
+  }
   RCLCPP_INFO(get_logger(), "Frame rate: %f frames per second", frame_rate);
 
   return rclcpp_lifecycle::node_interfaces::LifecycleNodeInterface::CallbackReturn::SUCCESS;
@@ -239,15 +343,27 @@ QualisysDriverNode::on_activate(const rclcpp_lifecycle::State &) {
 rclcpp_lifecycle::node_interfaces::LifecycleNodeInterface::CallbackReturn
 QualisysDriverNode::on_deactivate(const rclcpp_lifecycle::State &) {
   RCLCPP_INFO(get_logger(), "Deactivating");
-  // qualisys_pub_->on_deactivate();
-  // qualisys_pose_pub_->on_deactivate();
   timer_->cancel();
+  for (auto &publisher : qualisys_pose_pubs_) {
+    publisher.second->on_deactivate();
+    is_subjects_tracked_[publisher.first] = false;
+  }
 
   return rclcpp_lifecycle::node_interfaces::LifecycleNodeInterface::CallbackReturn::SUCCESS;
 }
 
 rclcpp_lifecycle::node_interfaces::LifecycleNodeInterface::CallbackReturn QualisysDriverNode::on_cleanup(const rclcpp_lifecycle::State &) {
   RCLCPP_INFO(get_logger(), "Cleaning up");
+  timer_->cancel();
+  for (auto &publisher : qualisys_pose_pubs_) {
+    publisher.second->on_deactivate();
+  }
+  qualisys_pose_pubs_.clear();
+  is_subjects_tracked_.clear();
+  if (port_protocol_.Connected()) {
+    port_protocol_.StreamFramesStop();
+    port_protocol_.Disconnect();
+  }
 
   return rclcpp_lifecycle::node_interfaces::LifecycleNodeInterface::CallbackReturn::SUCCESS;
 }
@@ -258,8 +374,11 @@ QualisysDriverNode::on_shutdown(const rclcpp_lifecycle::State &) {
 
   RCLCPP_INFO_STREAM(get_logger(), "Disconnected from the QTM server at "
                                        << server_address_ << ":" << base_port_);
-  port_protocol_.StreamFramesStop();
-  port_protocol_.Disconnect();
+  timer_->cancel();
+  if (port_protocol_.Connected()) {
+    port_protocol_.StreamFramesStop();
+    port_protocol_.Disconnect();
+  }
 
   return rclcpp_lifecycle::node_interfaces::LifecycleNodeInterface::CallbackReturn::SUCCESS;
 }

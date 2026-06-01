@@ -29,14 +29,6 @@
 
 namespace
 {
-    inline void ToLower(std::string& str)
-    {
-        std::transform(str.begin(), str.end(), str.begin(), [](int c)
-        {
-            return std::tolower(c);
-        });
-    }
-
     inline void RemoveInvalidChars(std::string& str)
     {
         auto isInvalidChar = [](int c) -> int
@@ -1449,15 +1441,15 @@ int CRTProtocol::ReceiveRTPacket(CRTPacket::EPacketType &eType, bool bSkipEvents
             strcpy(maErrorStr, "Data receive timeout.");
             return 0;
         }
+        if (nRecved <= -1)
+        {
+            strcpy(maErrorStr, "Socket Error.");
+            return -1;
+        }
         if (nRecved < (int)(sizeof(int) * 2))
         {
             // QTM header not received.
             strcpy(maErrorStr, "Couldn't read header bytes.");
-            return -1;
-        }
-        if (nRecved <= -1)
-        {
-            strcpy(maErrorStr, "Socket Error.");
             return -1;
         }
         nRecvedTotal += nRecved;
@@ -1490,7 +1482,14 @@ int CRTProtocol::ReceiveRTPacket(CRTPacket::EPacketType &eType, bool bSkipEvents
                         nReadSize = mDataBuff.size();
                     }
                     // As long as we haven't received enough data, wait for more
-                    nRecved = mpoNetwork->Receive(&(mDataBuff.data()[sizeof(int) * 2]), nReadSize, false, -1);
+                    nRecved = mpoNetwork->Receive(&(mDataBuff.data()[sizeof(int) * 2]), nReadSize, false, nTimeout);
+                    if (nRecved == 0)
+                    {
+                        strcpy(maErrorStr, "File packet receive timeout.");
+                        fclose(mpFileBuffer);
+                        mpFileBuffer = nullptr;
+                        return 0;
+                    }
                     if (nRecved < 0)
                     {
                         strcpy(maErrorStr, "Socket Error.");
@@ -1530,7 +1529,12 @@ int CRTProtocol::ReceiveRTPacket(CRTPacket::EPacketType &eType, bool bSkipEvents
             while (nRecvedTotal < nFrameSize) 
             {
                 // As long as we haven't received enough data, wait for more
-                nRecved = mpoNetwork->Receive(&(mDataBuff.data()[nRecvedTotal]), nFrameSize - nRecvedTotal, false, -1);
+                nRecved = mpoNetwork->Receive(&(mDataBuff.data()[nRecvedTotal]), nFrameSize - nRecvedTotal, false, nTimeout);
+                if (nRecved == 0)
+                {
+                    strcpy(maErrorStr, "Packet receive timeout.");
+                    return 0;
+                }
                 if (nRecved < 0)
                 {
                     strcpy(maErrorStr, "Socket Error.");
@@ -1576,7 +1580,7 @@ bool CRTProtocol::ReadXmlBool(CMarkup* xml, const std::string& element, bool& va
 
     auto str = xml->GetChildData();
     RemoveInvalidChars(str);
-    ToLower(str);
+    str = CRTProtocol::ToLower(str);
 
     if (str == "true")
     {
@@ -3169,6 +3173,25 @@ bool CRTProtocol::Read6DOFSettings(bool &bDataAvailable)
                     return false;
                 }
                 s6DOFBodySettings.name = oXML.GetChildData();
+
+                if (oXML.FindChildElem("Enabled"))
+                {
+                    std::string enabledStr = oXML.GetChildData();
+                    RemoveInvalidChars(enabledStr);
+                    enabledStr = CRTProtocol::ToLower(enabledStr);
+                    if (enabledStr == "true" || enabledStr == "1")
+                    {
+                        s6DOFBodySettings.enabled = true;
+                    }
+                    else if (enabledStr == "false" || enabledStr == "0")
+                    {
+                        s6DOFBodySettings.enabled = false;
+                    }
+                    else
+                    {
+                        return false;
+                    }
+                }
 
                 if (!oXML.FindChildElem("Color"))
                 {
@@ -5730,6 +5753,7 @@ bool CRTProtocol::Set6DOFBodySettings(std::vector<SSettings6DOFBody> settings)
         oXML.AddElem("Body");
         oXML.IntoElem();
         oXML.AddElem("Name", body.name.c_str());
+        oXML.AddElem("Enabled", body.enabled ? "true" : "false");
         oXML.AddElem("Color");
         oXML.AddAttrib("R", std::to_string(body.color & 0xff).c_str());
         oXML.AddAttrib("G", std::to_string((body.color >> 8) & 0xff).c_str());

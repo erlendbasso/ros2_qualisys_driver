@@ -94,9 +94,10 @@ bool CNetwork::Connect(const char* serverAddr, unsigned short nPort)
     // Connect to QTM RT server.
 
     mSocket = socket(AF_INET, SOCK_STREAM, 0);
-    if (mSocket == -1)
+    if (mSocket == INVALID_SOCKET)
     {
         strcpy(mErrorStr, "Socket could not be created.");
+        return false;
     }
 
     sockaddr_in sAddr;
@@ -106,7 +107,8 @@ bool CNetwork::Connect(const char* serverAddr, unsigned short nPort)
     {
         // If it wasn't a dotted number lookup the server name
 
-        struct addrinfo hints, *servinfo;
+        struct addrinfo hints;
+        struct addrinfo* servinfo = nullptr;
 
         memset(&hints, 0, sizeof hints);
         hints.ai_family = AF_INET;
@@ -125,6 +127,7 @@ bool CNetwork::Connect(const char* serverAddr, unsigned short nPort)
             return false;
         }
         sAddr.sin_addr = ((sockaddr_in *)servinfo[0].ai_addr)->sin_addr;
+        freeaddrinfo(servinfo);
     }
     sAddr.sin_port = htons(nPort);
     sAddr.sin_family = AF_INET;
@@ -160,10 +163,19 @@ void CNetwork::Disconnect()
 {
     // Try to shutdown gracefully
 
-    shutdown(mSocket, SD_SEND);
-    closesocket(mSocket);
-    closesocket(mUDPSocket);
-    closesocket(mUDPBroadcastSocket);
+    if (mSocket != INVALID_SOCKET)
+    {
+        shutdown(mSocket, SD_SEND);
+        closesocket(mSocket);
+    }
+    if (mUDPSocket != INVALID_SOCKET)
+    {
+        closesocket(mUDPSocket);
+    }
+    if (mUDPBroadcastSocket != INVALID_SOCKET)
+    {
+        closesocket(mUDPBroadcastSocket);
+    }
     mSocket             = INVALID_SOCKET;
     mUDPSocket          = INVALID_SOCKET;
     mUDPBroadcastSocket = INVALID_SOCKET;
@@ -177,7 +189,7 @@ bool CNetwork::Connected() const
 
 bool CNetwork::CreateUDPSocket(unsigned short &nUDPPort, bool bBroadcast)
 {
-    if (nUDPPort == 0 || nUDPPort > 1023)
+    if (nUDPPort == 0 || nUDPPort >= 1023)
     {
         SOCKET tempSocket = INVALID_SOCKET;
 
@@ -328,7 +340,63 @@ int CNetwork::Receive(char* rtDataBuff, int dataBufSize, bool header, int timeou
         }
         else if (FD_ISSET(mSocket, &readFDs))
         {
-            recieved = recv(mSocket, rtDataBuff, header ? 8 : dataBufSize, 0);
+            int requested = header ? 8 : dataBufSize;
+            while (recieved < requested)
+            {
+                int chunk = recv(mSocket, rtDataBuff + recieved, requested - recieved, 0);
+                if (chunk == 0)
+                {
+                    strcpy(mErrorStr, "Connection closed.");
+                    recieved = SOCKET_ERROR;
+                    break;
+                }
+                if (chunk == SOCKET_ERROR)
+                {
+                    SetErrorString();
+                    recieved = SOCKET_ERROR;
+                    break;
+                }
+                recieved += chunk;
+
+                if (!header || recieved == requested)
+                {
+                    break;
+                }
+
+                fd_set tcpReadFDs;
+                FD_ZERO(&tcpReadFDs);
+                FD_SET(mSocket, &tcpReadFDs);
+
+                TIMEVAL retryTimeval;
+                TIMEVAL* retryTimevalPtr;
+                if (timeout < 0)
+                {
+                    retryTimevalPtr = nullptr;
+                }
+                else
+                {
+                    retryTimeval.tv_sec = timeout / 1000000;
+                    retryTimeval.tv_usec = timeout % 1000000;
+                    retryTimevalPtr = &retryTimeval;
+                }
+
+#ifdef _WIN32
+                const int tcpNfds = 0;
+#else
+                const int tcpNfds = mSocket + 1;
+#endif
+                int retrySelectRes = select(tcpNfds, &tcpReadFDs, nullptr, nullptr, retryTimevalPtr);
+                if (retrySelectRes == 0)
+                {
+                    return recieved;
+                }
+                if (retrySelectRes < 0)
+                {
+                    SetErrorString();
+                    recieved = SOCKET_ERROR;
+                    break;
+                }
+            }
             FD_CLR(mSocket, &readFDs);
         }
         else if (FD_ISSET(mUDPSocket, &exceptFDs))
@@ -365,7 +433,7 @@ int CNetwork::Receive(char* rtDataBuff, int dataBufSize, bool header, int timeou
         recieved = -1;
     }
 
-    if (recieved == -1)
+    if (recieved == -1 && mErrorStr[0] == 0)
     {
         SetErrorString();
     }
@@ -449,19 +517,20 @@ bool CNetwork::SendUDPBroadcast(const char* sendBuf, int size, short port, unsig
 #else
         // Find all network interfaces.
         struct ifaddrs* ifap = nullptr;
-		if (getifaddrs(&ifap) == 0)
-		{
-			sockaddr_in recvAddr;
-			recvAddr.sin_family = AF_INET;
-			recvAddr.sin_port = htons(port);
-			recvAddr.sin_addr.s_addr = 0xffffffff;
+        if (getifaddrs(&ifap) == 0)
+        {
+            sockaddr_in recvAddr;
+            recvAddr.sin_family = AF_INET;
+            recvAddr.sin_port = htons(port);
+            recvAddr.sin_addr.s_addr = 0xffffffff;
 
-			// Send broadcast on all Ethernet interfaces.
-			auto* ifa = ifap;
-			while (ifa)
-			{
-				if (ifa->ifa_addr->sa_family == AF_INET)
-				{
+            // Send broadcast on all Ethernet interfaces.
+            auto* ifa = ifap;
+            while (ifa)
+            {
+                if (ifa->ifa_addr != nullptr && ifa->ifa_netmask != nullptr &&
+                    ifa->ifa_addr->sa_family == AF_INET)
+                {
                     auto* sa = (struct sockaddr_in *) ifa->ifa_addr;
                     auto ipAddr = sa->sin_addr.s_addr;
 
@@ -476,11 +545,11 @@ bool CNetwork::SendUDPBroadcast(const char* sendBuf, int size, short port, unsig
                             broadCastSent = true;
                         }
                     }
-				}
-				ifa = ifa->ifa_next;
-			}
-		}
-		freeifaddrs(ifap);
+                }
+                ifa = ifa->ifa_next;
+            }
+        }
+        freeifaddrs(ifap);
 #endif
     }
 
@@ -554,25 +623,26 @@ bool CNetwork::IsLocalAddress(unsigned int nAddr) const
     }
 	free(pAdptInfo);
 #else
-	struct ifaddrs* pAdptInfo = nullptr;
-	struct ifaddrs* pNextAd = nullptr;
-	if (getifaddrs(&pAdptInfo) == 0)
-	{
-		pNextAd = pAdptInfo;
-		while (pNextAd)
-		{
-			if (pNextAd->ifa_addr->sa_family == AF_INET)
-			{
-				struct sockaddr_in* pNextAd_in = (struct sockaddr_in *)pNextAd->ifa_addr;
-				if (pNextAd_in->sin_addr.s_addr == nAddr)
-				{
-					return true;
-				}
-			}
-			pNextAd = pNextAd->ifa_next;
-		}
-	}
-	freeifaddrs(pAdptInfo);
+        struct ifaddrs* pAdptInfo = nullptr;
+        struct ifaddrs* pNextAd = nullptr;
+        if (getifaddrs(&pAdptInfo) == 0)
+        {
+            pNextAd = pAdptInfo;
+            while (pNextAd)
+            {
+                if (pNextAd->ifa_addr != nullptr && pNextAd->ifa_addr->sa_family == AF_INET)
+                {
+                    struct sockaddr_in* pNextAd_in = (struct sockaddr_in *)pNextAd->ifa_addr;
+                    if (pNextAd_in->sin_addr.s_addr == nAddr)
+                    {
+                        freeifaddrs(pAdptInfo);
+                        return true;
+                    }
+                }
+                pNextAd = pNextAd->ifa_next;
+            }
+        }
+        freeifaddrs(pAdptInfo);
 #endif
     return false;
 }
