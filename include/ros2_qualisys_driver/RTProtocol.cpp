@@ -3,6 +3,7 @@
 
 #include <float.h>
 #include <cctype>
+#include <cstdio>
 #include <thread>
 #include <string.h>
 #include <sstream>
@@ -41,6 +42,17 @@ namespace
         str.erase(std::remove_if(str.begin(), str.end(), isInvalidChar), str.end());
     }
 
+    inline void SetSocketError(char* errorStr, size_t errorStrSize, const char* networkError)
+    {
+        if (networkError && networkError[0] != '\0')
+        {
+            std::snprintf(errorStr, errorStrSize, "Socket Error. %s", networkError);
+        }
+        else
+        {
+            std::snprintf(errorStr, errorStrSize, "Socket Error.");
+        }
+    }
 }
 
 unsigned int CRTProtocol::GetSystemFrequency() const
@@ -1443,7 +1455,7 @@ int CRTProtocol::ReceiveRTPacket(CRTPacket::EPacketType &eType, bool bSkipEvents
         }
         if (nRecved <= -1)
         {
-            strcpy(maErrorStr, "Socket Error.");
+            SetSocketError(maErrorStr, sizeof(maErrorStr), mpoNetwork->GetErrorString());
             return -1;
         }
         if (nRecved < (int)(sizeof(int) * 2))
@@ -1502,7 +1514,7 @@ int CRTProtocol::ReceiveRTPacket(CRTPacket::EPacketType &eType, bool bSkipEvents
                     }
                     if (nRecved < 0)
                     {
-                        strcpy(maErrorStr, "Socket Error.");
+                        SetSocketError(maErrorStr, sizeof(maErrorStr), mpoNetwork->GetErrorString());
                         fclose(mpFileBuffer);
                         mpFileBuffer = nullptr;
                         return -1;
@@ -1547,7 +1559,7 @@ int CRTProtocol::ReceiveRTPacket(CRTPacket::EPacketType &eType, bool bSkipEvents
                 }
                 if (nRecved < 0)
                 {
-                    strcpy(maErrorStr, "Socket Error.");
+                    SetSocketError(maErrorStr, sizeof(maErrorStr), mpoNetwork->GetErrorString());
                     return -1;
                 }
                 nRecvedTotal += nRecved;
@@ -3199,6 +3211,9 @@ bool CRTProtocol::Read6DOFSettings(bool &bDataAvailable)
                     }
                     else
                     {
+                        std::snprintf(maErrorStr, sizeof(maErrorStr),
+                                      "Invalid 6DOF body Enabled value '%s'.",
+                                      enabledStr.c_str());
                         return false;
                     }
                 }

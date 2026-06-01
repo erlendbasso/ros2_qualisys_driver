@@ -223,8 +223,9 @@ bool QualisysDriverNode::get_rt_packet() {
       break;
     }
   } else if (received < 0) {
-    RCLCPP_ERROR_STREAM(get_logger(), "QTM error when receiving packet:\n"
-                                          << port_protocol_.GetErrorString());
+    RCLCPP_ERROR_THROTTLE(get_logger(), *get_clock(), 5000,
+                          "QTM error when receiving packet:\n%s",
+                          port_protocol_.GetErrorString());
   }
   return is_ok;
 }
@@ -291,7 +292,7 @@ QualisysDriverNode::on_configure(const rclcpp_lifecycle::State &) {
   bool bDataAvailable = false;
   if (!port_protocol_.Read6DOFSettings(bDataAvailable) || bDataAvailable == false) {
     RCLCPP_FATAL_STREAM(
-        get_logger(), "Reading 6DOF body settings failed during intialization\n"
+        get_logger(), "Reading 6DOF body settings failed during initialization\n"
                           << "QTM error: " << port_protocol_.GetErrorString());
     port_protocol_.Disconnect();
     return CallbackReturn::ERROR;
@@ -299,7 +300,7 @@ QualisysDriverNode::on_configure(const rclcpp_lifecycle::State &) {
   // Read system settings
   if (!port_protocol_.ReadGeneralSettings()) {
     RCLCPP_FATAL_STREAM(
-        get_logger(), "Failed to read system settings during intialization\n"
+        get_logger(), "Failed to read system settings during initialization\n"
                           << "QTM error: " << port_protocol_.GetErrorString());
     port_protocol_.Disconnect();
     return CallbackReturn::ERROR;
@@ -396,12 +397,12 @@ rclcpp_lifecycle::node_interfaces::LifecycleNodeInterface::CallbackReturn
 QualisysDriverNode::on_shutdown(const rclcpp_lifecycle::State &) {
   RCLCPP_INFO(get_logger(), "Shutting down");
 
-  RCLCPP_INFO_STREAM(get_logger(), "Disconnected from the QTM server at "
-                                       << server_address_ << ":" << base_port_);
   timer_->cancel();
   if (port_protocol_.Connected()) {
     port_protocol_.StreamFramesStop();
     port_protocol_.Disconnect();
+    RCLCPP_INFO_STREAM(get_logger(), "Disconnected from the QTM server at "
+                                         << server_address_ << ":" << base_port_);
   }
 
   return rclcpp_lifecycle::node_interfaces::LifecycleNodeInterface::CallbackReturn::SUCCESS;
