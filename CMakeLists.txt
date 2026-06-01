@@ -24,11 +24,8 @@ find_package(rclcpp REQUIRED)
 find_package(rclcpp_components REQUIRED)
 find_package(rclcpp_lifecycle REQUIRED)
 find_package(lifecycle_msgs REQUIRED)
-#find_package(eigen3_cmake_module REQUIRED)
 find_package(Eigen3 REQUIRED)
-find_package(nav_msgs)
-find_package(geometry_msgs)
-# find_package(pendulum_control REQUIRED)
+find_package(geometry_msgs REQUIRED)
 
 
 set(dependencies
@@ -36,15 +33,12 @@ set(dependencies
     rclcpp_components
     rclcpp_lifecycle
     lifecycle_msgs
-    eigen3_cmake_module
     Eigen3
-    nav_msgs
-    # pendulum_control
     geometry_msgs
 )
 
 set(QUALISYS_DRIVER_LIB qualisys_driver)
-add_library(${QUALISYS_DRIVER_LIB} 
+add_library(${QUALISYS_DRIVER_LIB} SHARED
             src/qualisys_driver_node.cpp
             include/ros2_qualisys_driver/RTProtocol.cpp
             include/ros2_qualisys_driver/Markup.cpp
@@ -55,11 +49,10 @@ add_library(${QUALISYS_DRIVER_LIB}
 target_include_directories(${QUALISYS_DRIVER_LIB}
                             PUBLIC
                             $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
-$<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}>
+                            $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}>
                             $<INSTALL_INTERFACE:include>
                             ${rclcpp_components_INCLUDE_DIRS}
                             ${lifecycle_msgs_INCLUDE_DIRS}
-                            ${nav_msgs_INCLUDE_DIRS}
                             ${geometry_msgs_INCLUDE_DIRS}
                             ${rclcpp_lifecycle_INCLUDE_DIRS}
 )
@@ -70,13 +63,12 @@ target_link_libraries(${QUALISYS_DRIVER_LIB} PUBLIC
   rclcpp::rclcpp
   rclcpp_lifecycle::rclcpp_lifecycle
   ${rclcpp_components_LIBRARIES}
-  ${nav_msgs_LIBRARIES}
   ${geometry_msgs_LIBRARIES}
   ${lifecycle_msgs_LIBRARIES}
   $<$<STREQUAL:"${CMAKE_CXX_COMPILER_ID}","MSVC">:ws2_32.lib>
 )
 
-#rclcpp_components_register_nodes(${QUALISYS_DRIVER_LIB} "QualisysDriver")
+rclcpp_components_register_nodes(${QUALISYS_DRIVER_LIB} "qualisys_driver::QualisysDriverNode")
 
 set(QUALISYS_DRIVER_EXE "${QUALISYS_DRIVER_LIB}_exe")
 add_executable(${QUALISYS_DRIVER_EXE} src/qualisys_driver_node_main.cpp)

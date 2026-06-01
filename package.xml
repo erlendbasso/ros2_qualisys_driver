@@ -3,8 +3,8 @@
 <package format="3">
   <name>ros2_qualisys_driver</name>
   <version>0.0.0</version>
-  <description>TODO: Package description</description>
-  <maintainer email="erlendbasso@gmail.com">ros</maintainer>
+  <description>ROS 2 driver for streaming 6DOF pose data from Qualisys QTM.</description>
+  <maintainer email="erlendbasso@gmail.com">Erlend Basso</maintainer>
   <license>TODO: License declaration</license>
 
   <buildtool_depend>ament_cmake</buildtool_depend>
@@ -13,10 +13,11 @@
   <depend>rclcpp_lifecycle</depend>
   <depend>rclcpp_components</depend>
   <depend>lifecycle_msgs</depend>
-  <depend>rcpputils</depend>
-  <depend>nav_msgs</depend>
+  <depend>geometry_msgs</depend>
 
+  <build_depend>eigen</build_depend>
   <build_export_depend>eigen</build_export_depend>
+  <exec_depend>eigen</exec_depend>
   <test_depend>ament_lint_auto</test_depend>
   <test_depend>ament_lint_common</test_depend>
 

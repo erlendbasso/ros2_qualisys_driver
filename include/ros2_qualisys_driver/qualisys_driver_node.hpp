@@ -4,9 +4,8 @@
 #include <string>
 #include <memory>
 #include <chrono>
-#include <set>
-#include <vector>
 #include <climits>
+#include <map>
 
 #include <Eigen/Dense>
 
@@ -23,8 +22,6 @@
 // #include "realtime_tools/realtime_publisher.h"
 
 #include "ros2_qualisys_driver/RTProtocol.h"
-
-#include "nav_msgs/msg/odometry.hpp"
 
 #include "geometry_msgs/msg/pose_stamped.hpp"
 
@@ -67,8 +64,17 @@ private:
   std::chrono::milliseconds update_period_;
 
   // Port that the server should stream UDP packets to.
-  // 0 indicates that TCP is used.
+  // 0 and -1 indicate that TCP is used.
   int udp_port_;
+
+  // Timeout for one receive wait in microseconds.
+  int receive_timeout_us_;
+
+  // Frame ID used for published poses.
+  std::string frame_id_;
+
+  // Relative ROS topic prefix for published pose streams.
+  std::string topic_prefix_;
 
   // Minor version of the QTM protocol
   int minor_protocol_version_;
@@ -77,6 +83,8 @@ private:
   const int major_protocol_version_{1};
   
   std::map<std::string, bool> is_subjects_tracked_;
+
+  std::map<std::string, std::string> subject_topic_names_;
 
   // Protocol to connect to the server
   CRTProtocol port_protocol_;
@@ -89,8 +97,6 @@ private:
   std::map<std::string, std::shared_ptr<rclcpp_lifecycle::LifecyclePublisher<geometry_msgs::msg::PoseStamped>>> qualisys_pose_pubs_;
 
   rclcpp::TimerBase::SharedPtr timer_;
-
-  nav_msgs::msg::Odometry odometry_message_;
 };
 
 }

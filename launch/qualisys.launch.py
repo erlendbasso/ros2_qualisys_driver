@@ -1,10 +1,6 @@
 #!/usr/bin/python3
 
 import os
-import pathlib
-import yaml
-import launch
-from launch import LaunchIntrospector
 
 from ament_index_python.packages import get_package_share_directory
 
@@ -12,14 +8,7 @@ from launch import LaunchDescription
 from launch.actions import EmitEvent
 from launch.actions import LogInfo
 from launch.actions import RegisterEventHandler
-
-from launch.actions import DeclareLaunchArgument
-from launch.conditions import IfCondition
-import launch.substitutions
-from launch.substitutions import LaunchConfiguration
-from launch_ros.actions import Node
 from launch_ros.actions import LifecycleNode
-from launch_ros.substitutions import FindPackageShare
 from launch_ros.events.lifecycle import ChangeState
 from launch_ros.event_handlers import OnStateTransition
 from launch.events import matches_action
@@ -54,7 +43,7 @@ def generate_launch_description():
         namespace='qualisys_driver',
         emulate_tty=True,
         remappings=[
-            ("qualisys/rb5/pose", "mavros/vision_pose/pose")
+            ("qualisys/rb5/pose", "/mavros/vision_pose/pose")
         ],
         output='screen',
         parameters=[config_qualisys]

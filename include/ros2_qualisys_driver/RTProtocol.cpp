@@ -3,6 +3,7 @@
 
 #include <float.h>
 #include <cctype>
+#include <cstdio>
 #include <thread>
 #include <string.h>
 #include <sstream>
@@ -29,14 +30,6 @@
 
 namespace
 {
-    inline void ToLower(std::string& str)
-    {
-        std::transform(str.begin(), str.end(), str.begin(), [](int c)
-        {
-            return std::tolower(c);
-        });
-    }
-
     inline void RemoveInvalidChars(std::string& str)
     {
         auto isInvalidChar = [](int c) -> int
@@ -49,6 +42,17 @@ namespace
         str.erase(std::remove_if(str.begin(), str.end(), isInvalidChar), str.end());
     }
 
+    inline void SetSocketError(char* errorStr, size_t errorStrSize, const char* networkError)
+    {
+        if (networkError && networkError[0] != '\0')
+        {
+            std::snprintf(errorStr, errorStrSize, "Socket Error. %s", networkError);
+        }
+        else
+        {
+            std::snprintf(errorStr, errorStrSize, "Socket Error.");
+        }
+    }
 }
 
 unsigned int CRTProtocol::GetSystemFrequency() const
@@ -1449,15 +1453,15 @@ int CRTProtocol::ReceiveRTPacket(CRTPacket::EPacketType &eType, bool bSkipEvents
             strcpy(maErrorStr, "Data receive timeout.");
             return 0;
         }
+        if (nRecved <= -1)
+        {
+            SetSocketError(maErrorStr, sizeof(maErrorStr), mpoNetwork->GetErrorString());
+            return -1;
+        }
         if (nRecved < (int)(sizeof(int) * 2))
         {
             // QTM header not received.
             strcpy(maErrorStr, "Couldn't read header bytes.");
-            return -1;
-        }
-        if (nRecved <= -1)
-        {
-            strcpy(maErrorStr, "Socket Error.");
             return -1;
         }
         nRecvedTotal += nRecved;
@@ -1472,9 +1476,19 @@ int CRTProtocol::ReceiveRTPacket(CRTPacket::EPacketType &eType, bool bSkipEvents
         {
             if (mpFileBuffer != nullptr)
             {
+                const unsigned int nBufferOffset = sizeof(int) * 2;
+                if (mDataBuff.size() <= nBufferOffset)
+                {
+                    strcpy(maErrorStr, "Receive buffer too small.");
+                    fclose(mpFileBuffer);
+                    mpFileBuffer = nullptr;
+                    return -1;
+                }
+                const unsigned int nBufferPayloadSize =
+                    static_cast<unsigned int>(mDataBuff.size()) - nBufferOffset;
                 rewind(mpFileBuffer); // Start from the beginning
-                if (fwrite(mDataBuff.data() + sizeof(int) * 2, 1, nRecvedTotal - sizeof(int) * 2, mpFileBuffer) !=
-                    nRecvedTotal - sizeof(int) * 2)
+                if (fwrite(mDataBuff.data() + nBufferOffset, 1, nRecvedTotal - nBufferOffset, mpFileBuffer) !=
+                    nRecvedTotal - nBufferOffset)
                 {
                     strcpy(maErrorStr, "Failed to write file to disk.");
                     fclose(mpFileBuffer);
@@ -1485,20 +1499,27 @@ int CRTProtocol::ReceiveRTPacket(CRTPacket::EPacketType &eType, bool bSkipEvents
                 while (nRecvedTotal < nFrameSize) 
                 {
                     nReadSize = nFrameSize - nRecvedTotal;
-                    if (nFrameSize > mDataBuff.size())                                                                                                                                                                                                                                                                                             
+                    if (nReadSize > nBufferPayloadSize)
                     {
-                        nReadSize = mDataBuff.size();
+                        nReadSize = nBufferPayloadSize;
                     }
                     // As long as we haven't received enough data, wait for more
-                    nRecved = mpoNetwork->Receive(&(mDataBuff.data()[sizeof(int) * 2]), nReadSize, false, -1);
+                    nRecved = mpoNetwork->Receive(&(mDataBuff.data()[nBufferOffset]), nReadSize, false, nTimeout);
+                    if (nRecved == 0)
+                    {
+                        strcpy(maErrorStr, "File packet receive timeout.");
+                        fclose(mpFileBuffer);
+                        mpFileBuffer = nullptr;
+                        return 0;
+                    }
                     if (nRecved < 0)
                     {
-                        strcpy(maErrorStr, "Socket Error.");
+                        SetSocketError(maErrorStr, sizeof(maErrorStr), mpoNetwork->GetErrorString());
                         fclose(mpFileBuffer);
                         mpFileBuffer = nullptr;
                         return -1;
                     }
-                    if (fwrite(mDataBuff.data() + sizeof(int) * 2, 1, nRecved, mpFileBuffer) != (size_t)nRecved)
+                    if (fwrite(mDataBuff.data() + nBufferOffset, 1, nRecved, mpFileBuffer) != (size_t)nRecved)
                     {
                         strcpy(maErrorStr, "Failed to write file to disk.");
                         fclose(mpFileBuffer);
@@ -1530,10 +1551,15 @@ int CRTProtocol::ReceiveRTPacket(CRTPacket::EPacketType &eType, bool bSkipEvents
             while (nRecvedTotal < nFrameSize) 
             {
                 // As long as we haven't received enough data, wait for more
-                nRecved = mpoNetwork->Receive(&(mDataBuff.data()[nRecvedTotal]), nFrameSize - nRecvedTotal, false, -1);
+                nRecved = mpoNetwork->Receive(&(mDataBuff.data()[nRecvedTotal]), nFrameSize - nRecvedTotal, false, nTimeout);
+                if (nRecved == 0)
+                {
+                    strcpy(maErrorStr, "Packet receive timeout.");
+                    return 0;
+                }
                 if (nRecved < 0)
                 {
-                    strcpy(maErrorStr, "Socket Error.");
+                    SetSocketError(maErrorStr, sizeof(maErrorStr), mpoNetwork->GetErrorString());
                     return -1;
                 }
                 nRecvedTotal += nRecved;
@@ -1576,7 +1602,7 @@ bool CRTProtocol::ReadXmlBool(CMarkup* xml, const std::string& element, bool& va
 
     auto str = xml->GetChildData();
     RemoveInvalidChars(str);
-    ToLower(str);
+    str = CRTProtocol::ToLower(str);
 
     if (str == "true")
     {
@@ -3169,6 +3195,28 @@ bool CRTProtocol::Read6DOFSettings(bool &bDataAvailable)
                     return false;
                 }
                 s6DOFBodySettings.name = oXML.GetChildData();
+
+                if (oXML.FindChildElem("Enabled"))
+                {
+                    std::string enabledStr = oXML.GetChildData();
+                    RemoveInvalidChars(enabledStr);
+                    enabledStr = CRTProtocol::ToLower(enabledStr);
+                    if (enabledStr == "true" || enabledStr == "1")
+                    {
+                        s6DOFBodySettings.enabled = true;
+                    }
+                    else if (enabledStr == "false" || enabledStr == "0")
+                    {
+                        s6DOFBodySettings.enabled = false;
+                    }
+                    else
+                    {
+                        std::snprintf(maErrorStr, sizeof(maErrorStr),
+                                      "Invalid 6DOF body Enabled value '%s'.",
+                                      enabledStr.c_str());
+                        return false;
+                    }
+                }
 
                 if (!oXML.FindChildElem("Color"))
                 {
@@ -5730,6 +5778,7 @@ bool CRTProtocol::Set6DOFBodySettings(std::vector<SSettings6DOFBody> settings)
         oXML.AddElem("Body");
         oXML.IntoElem();
         oXML.AddElem("Name", body.name.c_str());
+        oXML.AddElem("Enabled", body.enabled ? "true" : "false");
         oXML.AddElem("Color");
         oXML.AddAttrib("R", std::to_string(body.color & 0xff).c_str());
         oXML.AddAttrib("G", std::to_string((body.color >> 8) & 0xff).c_str());
