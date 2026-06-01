@@ -38,7 +38,7 @@ set(dependencies
 )
 
 set(QUALISYS_DRIVER_LIB qualisys_driver)
-add_library(${QUALISYS_DRIVER_LIB} 
+add_library(${QUALISYS_DRIVER_LIB} SHARED
             src/qualisys_driver_node.cpp
             include/ros2_qualisys_driver/RTProtocol.cpp
             include/ros2_qualisys_driver/Markup.cpp
@@ -49,7 +49,7 @@ add_library(${QUALISYS_DRIVER_LIB}
 target_include_directories(${QUALISYS_DRIVER_LIB}
                             PUBLIC
                             $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
-$<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}>
+                            $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}>
                             $<INSTALL_INTERFACE:include>
                             ${rclcpp_components_INCLUDE_DIRS}
                             ${lifecycle_msgs_INCLUDE_DIRS}
